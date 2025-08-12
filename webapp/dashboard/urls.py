@@ -12,4 +12,8 @@ urlpatterns = [
     # API endpoints
     path('api/dashboard/', views.dashboard_api_view, name='dashboard_api'),
     path('api/network/<int:network_group_id>/status/', views.network_status_api_view, name='network_status_api'),
+    path('api/all-networks-status/', views.all_networks_status_api_view, name='all_networks_status_api'),
+    path('api/network/<int:network_group_id>/detail/', views.network_detail_api_view, name='network_detail_api'),
+    path('api/domain/<int:domain_id>/detail/', views.domain_detail_api_view, name='domain_detail_api'),
+    path('api/endpoint/<int:endpoint_id>/chart/', views.endpoint_chart_api_view, name='endpoint_chart_api'),
 ]

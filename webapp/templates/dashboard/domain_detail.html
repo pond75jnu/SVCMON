@@ -68,15 +68,16 @@
     </div>
     
     {% if endpoint_status %}
-    <div class="divide-y divide-gray-200">
+    <div class="divide-y divide-gray-200" id="endpoints-container">
         {% for item in endpoint_status %}
-        <div class="p-6 hover:bg-gray-50 cursor-pointer" 
+        <div class="p-6 hover:bg-gray-50 cursor-pointer endpoint-item" 
+             data-endpoint-id="{{ item.endpoint.id }}"
              onclick="location.href='{% url 'dashboard:endpoint_chart' item.endpoint.id %}'">
             <div class="flex items-center justify-between">
                 <div class="flex items-center">
                     <!-- 상태 표시 -->
                     <div class="flex-shrink-0 mr-4">
-                        <div class="w-4 h-4 rounded-full 
+                        <div class="status-icon w-4 h-4 rounded-full 
                             {% if item.status == 'RED' %}bg-red-500{% elif item.status == 'AMBER' %}bg-yellow-500{% else %}bg-green-500{% endif %}">
                         </div>
                     </div>
@@ -96,20 +97,20 @@
                     <!-- 최근 체크 결과 -->
                     <div class="text-right">
                         {% if item.latest_check %}
-                        <div class="text-sm font-medium 
+                        <div class="status-result text-sm font-medium 
                             {% if item.status == 'GREEN' %}text-green-600{% elif item.status == 'RED' %}text-red-600{% else %}text-gray-600{% endif %}">
                             {% if item.status == 'GREEN' %}
-                                정상 ({{ item.latest_check.response_time }}ms)
+                                정상 ({{ item.latest_check.latency_ms }}ms)
                             {% elif item.status == 'RED' %}
                                 오류 ({{ item.latest_check.status_code|default:"연결실패" }})
                             {% endif %}
                         </div>
-                        <div class="text-xs text-gray-500 mt-1">
+                        <div class="last-checked text-xs text-gray-500 mt-1">
                             {{ item.latest_check.checked_at|date:"n월 j일 H:i" }}
                         </div>
                         {% else %}
-                        <div class="text-sm font-medium text-yellow-600">신호없음</div>
-                        <div class="text-xs text-gray-500 mt-1">체크된 적 없음</div>
+                        <div class="status-result text-sm font-medium text-yellow-600">신호없음</div>
+                        <div class="last-checked text-xs text-gray-500 mt-1">체크된 적 없음</div>
                         {% endif %}
                     </div>
                     
@@ -145,7 +146,7 @@
         </div>
         <div class="flex items-center">
             <div class="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
-            <span class="text-sm text-gray-600">신호없음: 아직 체크된 적이 없음</span>
+            <span class="text-sm text-gray-600">신호없음: 체크하였으나 신호가 없음</span>
         </div>
         <div class="flex items-center">
             <div class="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
@@ -155,15 +156,103 @@
 </div>
 
 <script>
-function refreshDomainDetail() {
-    location.reload();
+// 도메인 ID를 JavaScript에서 사용할 수 있도록 설정
+window.DOMAIN_ID = {{ domain.id }};
+
+let lastUpdateTime = new Date();
+
+function getStatusColor(status) {
+    switch(status) {
+        case 'GREEN': return 'bg-green-500';
+        case 'AMBER': return 'bg-yellow-500';
+        case 'RED': return 'bg-red-500';
+        default: return 'bg-gray-500';
+    }
 }
 
-// Lucide 아이콘 초기화
+function getStatusTextColor(status) {
+    switch(status) {
+        case 'GREEN': return 'text-green-600';
+        case 'AMBER': return 'text-yellow-600';
+        case 'RED': return 'text-red-600';
+        default: return 'text-gray-600';
+    }
+}
+
+function formatDateTime(isoString) {
+    if (!isoString) return '체크된 적 없음';
+    
+    const date = new Date(isoString);
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const hour = date.getHours();
+    const minute = date.getMinutes();
+    
+    return `${month}월 ${day}일 ${hour}:${minute.toString().padStart(2, '0')}`;
+}
+
+function refreshDomainDetail() {
+    updateDomainDetail();
+}
+
+function updateDomainDetail() {
+    fetch(`/dashboard/api/domain/${window.DOMAIN_ID}/detail/`)
+        .then(response => response.json())
+        .then(data => {
+            data.endpoint_status.forEach(endpoint => {
+                const endpointItem = document.querySelector(`[data-endpoint-id="${endpoint.endpoint_id}"]`);
+                if (endpointItem) {
+                    // 상태 아이콘 업데이트
+                    const statusIcon = endpointItem.querySelector('.status-icon');
+                    if (statusIcon) {
+                        statusIcon.className = `w-4 h-4 rounded-full status-icon ${getStatusColor(endpoint.status)}`;
+                    }
+                    
+                    // 상태 결과 업데이트
+                    const statusResult = endpointItem.querySelector('.status-result');
+                    if (statusResult) {
+                        statusResult.className = `text-sm font-medium status-result ${getStatusTextColor(endpoint.status)}`;
+                        
+                        let statusText = '';
+                        if (endpoint.status === 'GREEN' && endpoint.latest_check && endpoint.latest_check.latency_ms) {
+                            statusText = `정상 (${endpoint.latest_check.latency_ms}ms)`;
+                        } else if (endpoint.status === 'RED' && endpoint.latest_check) {
+                            statusText = `오류 (${endpoint.latest_check.status_code || '연결실패'})`;
+                        } else if (endpoint.status === 'AMBER') {
+                            statusText = '신호없음';
+                        }
+                        
+                        statusResult.textContent = statusText;
+                    }
+                    
+                    // 마지막 체크 시간 업데이트
+                    const lastChecked = endpointItem.querySelector('.last-checked');
+                    if (lastChecked) {
+                        lastChecked.textContent = endpoint.latest_check ? 
+                            formatDateTime(endpoint.latest_check.checked_at) : 
+                            '체크된 적 없음';
+                    }
+                }
+            });
+            
+            lastUpdateTime = new Date(data.last_updated);
+        })
+        .catch(error => {
+            console.error('Domain detail update failed:', error);
+        });
+}
+
+// 자동 새로고침 (10초마다)
+setInterval(updateDomainDetail, 10000);
+
+// Lucide 아이콘 초기화 및 초기 업데이트
 document.addEventListener('DOMContentLoaded', function() {
     if (typeof lucide !== 'undefined') {
         lucide.createIcons();
     }
+    
+    // 5초 후 첫 번째 자동 업데이트
+    setTimeout(updateDomainDetail, 5000);
 });
 </script>
 {% endblock %}

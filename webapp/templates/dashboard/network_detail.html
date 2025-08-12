@@ -56,15 +56,16 @@
     </div>
     
     {% if domain_status %}
-    <div class="divide-y divide-gray-200">
+    <div class="divide-y divide-gray-200" id="domains-container">
         {% for item in domain_status %}
-        <div class="p-6 hover:bg-gray-50 cursor-pointer" 
+        <div class="p-6 hover:bg-gray-50 cursor-pointer domain-item" 
+             data-domain-id="{{ item.domain.id }}"
              onclick="location.href='{% url 'dashboard:domain_detail' item.domain.id %}'">
             <div class="flex items-center justify-between">
                 <div class="flex items-center">
                     <!-- 상태 표시 -->
                     <div class="flex-shrink-0 mr-4">
-                        <div class="w-4 h-4 rounded-full 
+                        <div class="status-icon w-4 h-4 rounded-full 
                             {% if item.status == 'RED' %}bg-red-500{% elif item.status == 'AMBER' %}bg-yellow-500{% else %}bg-green-500{% endif %}">
                         </div>
                     </div>
@@ -83,26 +84,25 @@
                 <div class="flex items-center space-x-6">
                     <!-- 통계 -->
                     <div class="text-right">
-                        <div class="text-sm font-medium text-gray-900">
+                        <div class="text-sm font-medium text-gray-900 endpoint-count">
                             {{ item.total_endpoints }}개 엔드포인트
                         </div>
-                        <div class="flex items-center space-x-4 mt-1">
+                        <div class="flex items-center space-x-4 mt-1 status-counts">
                             {% if item.red_count > 0 %}
-                            <span class="inline-flex items-center text-xs">
+                            <span class="inline-flex items-center text-xs red-count">
                                 <div class="w-2 h-2 bg-red-500 rounded-full mr-1"></div>
                                 장애 {{ item.red_count }}
                             </span>
                             {% endif %}
                             
                             {% if item.amber_count > 0 %}
-                            <span class="inline-flex items-center text-xs">
+                            <span class="inline-flex items-center text-xs amber-count">
                                 <div class="w-2 h-2 bg-yellow-500 rounded-full mr-1"></div>
                                 신호없음 {{ item.amber_count }}
-                            </span>
                             {% endif %}
                             
                             {% if item.green_count > 0 %}
-                            <span class="inline-flex items-center text-xs">
+                            <span class="inline-flex items-center text-xs green-count">
                                 <div class="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
                                 정상 {{ item.green_count }}
                             </span>
@@ -142,7 +142,7 @@
         </div>
         <div class="flex items-center">
             <div class="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
-            <span class="text-sm text-gray-600">신호없음: 체크된 적이 없는 엔드포인트 존재</span>
+            <span class="text-sm text-gray-600">신호없음: 체크하였으나 신호가 없는 엔드포인트 존재</span>
         </div>
         <div class="flex items-center">
             <div class="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
@@ -152,15 +152,98 @@
 </div>
 
 <script>
-function refreshNetworkDetail() {
-    location.reload();
+let lastUpdateTime = new Date();
+
+function getStatusColor(status) {
+    switch(status) {
+        case 'GREEN': return 'bg-green-500';
+        case 'AMBER': return 'bg-yellow-500';
+        case 'RED': return 'bg-red-500';
+        default: return 'bg-gray-500';
+    }
 }
 
-// Lucide 아이콘 초기화
+function refreshNetworkDetail() {
+    updateNetworkDetail();
+}
+
+function updateNetworkDetail() {
+    const networkGroupId = {{ network_group.id }};
+    
+    fetch(`/dashboard/api/network/${networkGroupId}/detail/`)
+        .then(response => response.json())
+        .then(data => {
+            data.domain_status.forEach(domain => {
+                const domainItem = document.querySelector(`[data-domain-id="${domain.domain_id}"]`);
+                if (domainItem) {
+                    // 상태 아이콘 업데이트
+                    const statusIcon = domainItem.querySelector('.status-icon');
+                    if (statusIcon) {
+                        statusIcon.className = `w-4 h-4 rounded-full status-icon ${getStatusColor(domain.status)}`;
+                    }
+                    
+                    // 엔드포인트 수 업데이트
+                    const endpointCount = domainItem.querySelector('.endpoint-count');
+                    if (endpointCount) {
+                        endpointCount.textContent = `${domain.total_endpoints}개 엔드포인트`;
+                    }
+                    
+                    // 상태 카운트 업데이트
+                    const statusCounts = domainItem.querySelector('.status-counts');
+                    if (statusCounts) {
+                        let countsHTML = '';
+                        
+                        if (domain.red_count > 0) {
+                            countsHTML += `
+                                <span class="inline-flex items-center text-xs red-count">
+                                    <div class="w-2 h-2 bg-red-500 rounded-full mr-1"></div>
+                                    장애 ${domain.red_count}
+                                </span>
+                            `;
+                        }
+                        
+                        if (domain.amber_count > 0) {
+                            countsHTML += `
+                                <span class="inline-flex items-center text-xs amber-count">
+                                    <div class="w-2 h-2 bg-yellow-500 rounded-full mr-1"></div>
+                                    신호없음 ${domain.amber_count}
+                                </span>
+                            `;
+                        }
+                        
+                        if (domain.green_count > 0) {
+                            countsHTML += `
+                                <span class="inline-flex items-center text-xs green-count">
+                                    <div class="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
+                                    정상 ${domain.green_count}
+                                </span>
+                            `;
+                        }
+                        
+                        statusCounts.innerHTML = countsHTML;
+                    }
+                }
+            });
+            
+            lastUpdateTime = new Date(data.last_updated);
+        })
+        .catch(error => {
+            console.error('Network detail update failed:', error);
+        });
+}
+
+// 자동 새로고침 (10초마다)
+setInterval(updateNetworkDetail, 10000);
+
+// 페이지 로드 시 초기 업데이트
 document.addEventListener('DOMContentLoaded', function() {
+    // Lucide 아이콘 초기화
     if (typeof lucide !== 'undefined') {
         lucide.createIcons();
     }
+    
+    // 5초 후 첫 번째 자동 업데이트
+    setTimeout(updateNetworkDetail, 5000);
 });
 </script>
 {% endblock %}

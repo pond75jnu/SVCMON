@@ -10,6 +10,7 @@ import socket
 import threading
 import argparse
 from datetime import datetime, timedelta
+import pytz
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 from urllib.parse import urlparse
@@ -19,6 +20,13 @@ import win32serviceutil
 import win32service
 import win32event
 import servicemanager
+
+# 서울 시간대 설정
+KST = pytz.timezone('Asia/Seoul')
+
+def get_seoul_time():
+    """서울 시간 반환"""
+    return datetime.now(KST)
 
 # 로깅 설정
 logging.basicConfig(
@@ -159,7 +167,7 @@ class HttpChecker:
     async def check_endpoint(self, endpoint: EndpointCheck) -> CheckResult:
         """단일 엔드포인트 체크"""
         async with self._semaphore:
-            start_time = datetime.now()
+            start_time = get_seoul_time()
             result = CheckResult(endpoint_id=endpoint.endpoint_id, checked_at=start_time)
             
             try:
@@ -167,7 +175,7 @@ class HttpChecker:
                 timeout = aiohttp.ClientTimeout(total=self.timeout)
                 async with aiohttp.ClientSession(timeout=timeout) as session:
                     async with session.get(endpoint.url) as response:
-                        end_time = datetime.now()
+                        end_time = get_seoul_time()
                         latency = int((end_time - start_time).total_seconds() * 1000)
                         
                         result.status_code = response.status
@@ -206,7 +214,7 @@ class HttpChecker:
                 error_result = CheckResult(
                     endpoint_id=endpoints[i].endpoint_id,
                     error=f"체크 실행 오류: {str(result)}",
-                    checked_at=datetime.now()
+                    checked_at=get_seoul_time()
                 )
                 valid_results.append(error_result)
                 logger.error(f"체크 실행 오류: {endpoints[i].url} - {result}")
@@ -315,7 +323,7 @@ class MonitoringService:
         """한 배치의 엔드포인트들을 처리 (망구분별)"""
         try:
             # 다음 폴링 배치 조회 (망구분 필터링)
-            now = datetime.now()
+            now = get_seoul_time()
             params = {
                 'now': now,
                 'limit': self.batch_size,
@@ -369,7 +377,7 @@ class MonitoringService:
                     'latency_ms': result.latency_ms,
                     'headers': result.headers,
                     'error': result.error,
-                    'checked_at': result.checked_at or datetime.now()
+                    'checked_at': result.checked_at or get_seoul_time()
                 }
                 
                 # 비동기로 저장하기 위해 스레드풀에서 실행

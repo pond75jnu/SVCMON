@@ -13,6 +13,7 @@ pywin32>=306
 
 # 유틸리티
 python-dateutil==2.8.2
+pytz==2023.3
 
 # 로깅 및 설정
 colorlog==6.8.0

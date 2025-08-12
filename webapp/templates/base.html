@@ -146,6 +146,12 @@
                 <div class="flex items-center">
                     <div class="hidden md:block">
                         <div class="ml-4 flex items-center md:ml-6">
+                            <!-- 현재 시간 표시 -->
+                            <div class="text-white text-sm mr-4 flex items-center">
+                                <i class="fas fa-clock mr-2"></i>
+                                <span id="current-time">2025-08-12 22:49:00</span>
+                            </div>
+                            
                             <div class="text-white text-sm mr-4">
                                 <span class="{% if user.is_admin %}bg-red-500{% else %}bg-green-500{% endif %} px-2 py-1 rounded text-xs mr-2">
                                     {{ user.get_role_display }}
@@ -289,6 +295,36 @@
                 }, 300);
             });
         }, 5000);
+        
+        // 실시간 현재 시간 업데이트
+        function updateCurrentTime() {
+            const now = new Date();
+            // 한국 시간대로 변환 (UTC+9)
+            const kstOffset = 9 * 60; // 9시간을 분으로 변환
+            const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+            const kstTime = new Date(utc + (kstOffset * 60000));
+            
+            // YYYY-MM-DD HH:MM:SS 형식으로 포맷
+            const year = kstTime.getFullYear();
+            const month = String(kstTime.getMonth() + 1).padStart(2, '0');
+            const day = String(kstTime.getDate()).padStart(2, '0');
+            const hours = String(kstTime.getHours()).padStart(2, '0');
+            const minutes = String(kstTime.getMinutes()).padStart(2, '0');
+            const seconds = String(kstTime.getSeconds()).padStart(2, '0');
+            
+            const timeString = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+            
+            const timeElement = document.getElementById('current-time');
+            if (timeElement) {
+                timeElement.textContent = timeString;
+            }
+        }
+        
+        // 페이지 로드시 시간 업데이트 시작
+        document.addEventListener('DOMContentLoaded', function() {
+            updateCurrentTime(); // 즉시 한번 업데이트
+            setInterval(updateCurrentTime, 1000); // 1초마다 업데이트
+        });
     </script>
     
     {% block extra_js %}{% endblock %}
