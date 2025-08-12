@@ -1,0 +1,660 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}엔드포인트 관리{% endblock %}
+
+{% block extra_css %}
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+    <!-- 브레드크럼 -->
+    <nav class="flex mb-6" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 md:space-x-3">
+            <li class="inline-flex items-center">
+                <a href="{% url 'monitoring:endpoint_list' %}" class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600">
+                    <i data-lucide="target" class="w-4 h-4 mr-2"></i>
+                    엔드포인트 관리
+                </a>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- 헤더 -->
+    <div class="mb-8">
+        <div class="flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">엔드포인트 관리</h1>
+                <p class="text-sm text-gray-600 mt-1">모니터링 대상 엔드포인트를 관리합니다</p>
+            </div>
+            <a href="{% url 'monitoring:endpoint_create' %}" 
+               class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-lg text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200">
+                <i data-lucide="plus" class="w-4 h-4 mr-2"></i>
+                새 엔드포인트 추가
+            </a>
+        </div>
+    </div>
+
+    <!-- 통계 카드 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i data-lucide="target" class="w-8 h-8 text-blue-600"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">전체 엔드포인트</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ stats.total_endpoints }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i data-lucide="check-circle" class="w-8 h-8 text-green-600"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">정상 엔드포인트</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ stats.healthy_endpoints }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i data-lucide="alert-circle" class="w-8 h-8 text-red-600"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">오류 엔드포인트</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ stats.error_endpoints }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i data-lucide="clock" class="w-8 h-8 text-purple-600"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">평균 응답시간</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ stats.avg_response_time|floatformat:0 }}ms</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 필터 및 검색 -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+        <div class="p-6">
+            <form method="get" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <!-- 검색 -->
+                    <div>
+                        <label for="search" class="block text-sm font-medium text-gray-700 mb-1">검색</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i data-lucide="search" class="w-4 h-4 text-gray-400"></i>
+                            </div>
+                            <input type="text" 
+                                   name="search" 
+                                   id="search"
+                                   value="{{ request.GET.search }}"
+                                   placeholder="URL 또는 이름 검색"
+                                   class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                    </div>
+
+                    <!-- 망구분 필터 -->
+                    <div>
+                        <label for="network_group" class="block text-sm font-medium text-gray-700 mb-1">망구분</label>
+                        <select name="network_group" 
+                                id="network_group"
+                                class="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">전체</option>
+                            {% for group in network_groups %}
+                            <option value="{{ group.id }}" {% if selected_network_group == group.id %}selected{% endif %}>
+                                {{ group.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- 도메인 필터 -->
+                    <div>
+                        <label for="domain" class="block text-sm font-medium text-gray-700 mb-1">도메인</label>
+                        <select name="domain" 
+                                id="domain"
+                                class="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">전체</option>
+                            {% for domain in domains %}
+                            <option value="{{ domain.id }}" {% if selected_domain == domain.id %}selected{% endif %}>
+                                {{ domain.domain }} ({{ domain.site_name }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- 상태 필터 -->
+                    <div>
+                        <label for="status" class="block text-sm font-medium text-gray-700 mb-1">상태</label>
+                        <select name="status" 
+                                id="status"
+                                class="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">전체</option>
+                            <option value="enabled" {% if selected_status == "enabled" %}selected{% endif %}>활성화</option>
+                            <option value="disabled" {% if selected_status == "disabled" %}selected{% endif %}>비활성화</option>
+                        </select>
+                    </div>
+
+                    <!-- 버튼 -->
+                    <div class="flex items-end space-x-2">
+                        <button type="submit" 
+                                class="flex-1 inline-flex justify-center items-center px-4 py-2 bg-gray-600 border border-transparent rounded-lg text-sm font-medium text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition duration-200">
+                            <i data-lucide="filter" class="w-4 h-4 mr-2"></i>
+                            필터
+                        </button>
+                        <a href="{% url 'monitoring:endpoint_list' %}" 
+                           class="inline-flex items-center px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 엔드포인트 목록 -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-medium text-gray-900">
+                    엔드포인트 목록 ({{ page_obj.paginator.count }}개)
+                </h3>
+                <div class="flex items-center space-x-2">
+                    <select id="bulkAction" class="text-sm border border-gray-300 rounded-lg px-3 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">일괄 작업</option>
+                        <option value="activate">선택 항목 활성화</option>
+                        <option value="deactivate">선택 항목 비활성화</option>
+                        <option value="check">선택 항목 즉시 점검</option>
+                        <option value="delete">선택 항목 삭제</option>
+                    </select>
+                    <button onclick="performBulkAction()" 
+                            class="text-sm px-3 py-1 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition duration-200">
+                        실행
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        {% if endpoints %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <input type="checkbox" id="selectAll" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            엔드포인트
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            도메인
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            메소드
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            상태
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            응답시간
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            최근 확인
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            작업
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for endpoint in endpoints %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <input type="checkbox" name="selected_endpoints" value="{{ endpoint.id }}" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <i data-lucide="target" class="w-4 h-4 text-gray-400 mr-2"></i>
+                                <div>
+                                    <div class="text-sm font-medium text-gray-900">
+                                        {% if endpoint.name %}
+                                        {{ endpoint.name }}
+                                        {% else %}
+                                        {{ endpoint.url|truncatechars:40 }}
+                                        {% endif %}
+                                    </div>
+                                    <div class="text-sm text-gray-500">{{ endpoint.url|truncatechars:60 }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                {{ endpoint.domain.name }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium 
+                                {% if endpoint.method == 'GET' %}bg-green-100 text-green-800
+                                {% elif endpoint.method == 'POST' %}bg-blue-100 text-blue-800
+                                {% elif endpoint.method == 'PUT' %}bg-yellow-100 text-yellow-800
+                                {% elif endpoint.method == 'DELETE' %}bg-red-100 text-red-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ endpoint.method }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if endpoint.is_active %}
+                                {% if endpoint.last_status_code %}
+                                    {% if endpoint.last_status_code >= 200 and endpoint.last_status_code < 300 %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        <i data-lucide="check-circle" class="w-3 h-3 mr-1"></i>
+                                        정상 ({{ endpoint.last_status_code }})
+                                    </span>
+                                    {% elif endpoint.last_status_code >= 400 %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                        <i data-lucide="x-circle" class="w-3 h-3 mr-1"></i>
+                                        오류 ({{ endpoint.last_status_code }})
+                                    </span>
+                                    {% else %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                        <i data-lucide="alert-circle" class="w-3 h-3 mr-1"></i>
+                                        경고 ({{ endpoint.last_status_code }})
+                                    </span>
+                                    {% endif %}
+                                {% else %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                    <i data-lucide="help-circle" class="w-3 h-3 mr-1"></i>
+                                    미확인
+                                </span>
+                                {% endif %}
+                            {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                <i data-lucide="pause-circle" class="w-3 h-3 mr-1"></i>
+                                비활성
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {% if endpoint.last_response_time %}
+                            {{ endpoint.last_response_time|floatformat:0 }}ms
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {% if endpoint.last_checked %}
+                            {{ endpoint.last_checked|timesince }} 전
+                            {% else %}
+                            확인된 적 없음
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div class="flex items-center space-x-2">
+                                <button onclick="checkEndpoint({{ endpoint.id }})" 
+                                        class="text-purple-600 hover:text-purple-900 transition duration-200" 
+                                        title="즉시 점검">
+                                    <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                                </button>
+                                <a href="{% url 'monitoring:endpoint_edit' endpoint.id %}" 
+                                   class="text-blue-600 hover:text-blue-900 transition duration-200" 
+                                   title="수정">
+                                    <i data-lucide="edit-2" class="w-4 h-4"></i>
+                                </a>
+                                <a href="{{ endpoint.url }}" 
+                                   target="_blank" 
+                                   class="text-green-600 hover:text-green-900 transition duration-200" 
+                                   title="외부 링크">
+                                    <i data-lucide="external-link" class="w-4 h-4"></i>
+                                </a>
+                                <button onclick="confirmDelete({{ endpoint.id }}, '{{ endpoint.url }}')" 
+                                        class="text-red-600 hover:text-red-900 transition duration-200" 
+                                        title="삭제">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 페이지네이션 -->
+        {% if page_obj.has_other_pages %}
+        <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+            <div class="flex-1 flex justify-between sm:hidden">
+                {% if page_obj.has_previous %}
+                <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}" 
+                   class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    이전
+                </a>
+                {% endif %}
+                {% if page_obj.has_next %}
+                <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}" 
+                   class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    다음
+                </a>
+                {% endif %}
+            </div>
+            <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                <div>
+                    <p class="text-sm text-gray-700">
+                        <span class="font-medium">{{ page_obj.start_index }}</span>
+                        -
+                        <span class="font-medium">{{ page_obj.end_index }}</span>
+                        중
+                        <span class="font-medium">{{ page_obj.paginator.count }}</span>
+                        개 표시
+                    </p>
+                </div>
+                <div>
+                    <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                        {% if page_obj.has_previous %}
+                        <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}" 
+                           class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                        </a>
+                        {% endif %}
+                        
+                        {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <span class="relative inline-flex items-center px-4 py-2 border border-blue-500 bg-blue-50 text-sm font-medium text-blue-600">
+                            {{ num }}
+                        </span>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ num }}" 
+                           class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                            {{ num }}
+                        </a>
+                        {% endif %}
+                        {% endfor %}
+                        
+                        {% if page_obj.has_next %}
+                        <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}" 
+                           class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                        </a>
+                        {% endif %}
+                    </nav>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="text-center py-12">
+            <i data-lucide="target" class="w-12 h-12 text-gray-400 mx-auto mb-4"></i>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">엔드포인트가 없습니다</h3>
+            <p class="text-gray-500 mb-4">새로운 엔드포인트를 추가해보세요.</p>
+            <a href="{% url 'monitoring:endpoint_create' %}" 
+               class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-lg text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200">
+                <i data-lucide="plus" class="w-4 h-4 mr-2"></i>
+                첫 번째 엔드포인트 추가
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 삭제 확인 모달 -->
+<div id="deleteModal" class="fixed inset-0 z-50 hidden overflow-y-auto">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="sm:flex sm:items-start">
+                    <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                        <i data-lucide="alert-triangle" class="w-6 h-6 text-red-600"></i>
+                    </div>
+                    <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">엔드포인트 삭제</h3>
+                        <div class="mt-2">
+                            <p class="text-sm text-gray-500">
+                                "<span id="deleteItemName"></span>" 엔드포인트를 정말 삭제하시겠습니까?<br>
+                                관련된 모든 모니터링 기록도 함께 삭제됩니다.<br>
+                                이 작업은 되돌릴 수 없습니다.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <form id="deleteForm" method="post" class="sm:ml-3 sm:w-auto">
+                    {% csrf_token %}
+                    <button type="submit" 
+                            class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:w-auto sm:text-sm transition duration-150">
+                        삭제
+                    </button>
+                </form>
+                <button type="button" onclick="closeDeleteModal()"
+                        class="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:w-auto sm:text-sm transition duration-150">
+                    취소
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script>
+    lucide.createIcons();
+    
+    // 전체 선택 체크박스
+    document.getElementById('selectAll').addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('input[name="selected_endpoints"]');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = this.checked;
+        });
+    });
+    
+    // 삭제 확인 모달
+    function confirmDelete(endpointId, endpointName) {
+        document.getElementById('deleteItemName').textContent = endpointName;
+        document.getElementById('deleteForm').action = '/monitoring/endpoints/' + endpointId + '/delete/';
+        document.getElementById('deleteModal').classList.remove('hidden');
+    }
+    
+    function closeDeleteModal() {
+        document.getElementById('deleteModal').classList.add('hidden');
+    }
+    
+    // 모달 외부 클릭 시 닫기
+    document.getElementById('deleteModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeDeleteModal();
+        }
+    });
+    
+    // 엔드포인트 즉시 점검
+    function checkEndpoint(endpointId) {
+        const button = event.target.closest('button');
+        const icon = button.querySelector('i');
+        
+        // 로딩 상태 표시
+        icon.className = 'w-4 h-4 animate-spin';
+        button.disabled = true;
+        
+        fetch(`/monitoring/endpoints/${endpointId}/check/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 성공 시 페이지 새로고침
+                location.reload();
+            } else {
+                alert('점검 실행 중 오류가 발생했습니다: ' + (data.error || '알 수 없는 오류'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('점검 실행 중 오류가 발생했습니다.');
+        })
+        .finally(() => {
+            // 로딩 상태 해제
+            icon.className = 'w-4 h-4';
+            button.disabled = false;
+            lucide.createIcons();
+        });
+    }
+    
+    // 일괄 작업
+    function performBulkAction() {
+        const action = document.getElementById('bulkAction').value;
+        const checkedBoxes = document.querySelectorAll('input[name="selected_endpoints"]:checked');
+        
+        if (!action) {
+            alert('작업을 선택해주세요.');
+            return;
+        }
+        
+        if (checkedBoxes.length === 0) {
+            alert('대상을 선택해주세요.');
+            return;
+        }
+        
+        const ids = Array.from(checkedBoxes).map(cb => cb.value);
+        
+        let confirmMessage = '';
+        switch (action) {
+            case 'delete':
+                confirmMessage = `선택한 ${ids.length}개 엔드포인트를 삭제하시겠습니까?`;
+                break;
+            case 'activate':
+                confirmMessage = `선택한 ${ids.length}개 엔드포인트를 활성화하시겠습니까?`;
+                break;
+            case 'deactivate':
+                confirmMessage = `선택한 ${ids.length}개 엔드포인트를 비활성화하시겠습니까?`;
+                break;
+            case 'check':
+                confirmMessage = `선택한 ${ids.length}개 엔드포인트를 즉시 점검하시겠습니까?`;
+                break;
+        }
+        
+        if (!confirm(confirmMessage)) {
+            return;
+        }
+        
+        // 일괄 작업 실행
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/monitoring/endpoints/bulk-action/';
+        
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        form.innerHTML = `
+            <input type="hidden" name="csrfmiddlewaretoken" value="${csrfToken}">
+            <input type="hidden" name="action" value="${action}">
+            ${ids.map(id => `<input type="hidden" name="selected_ids" value="${id}">`).join('')}
+        `;
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+    
+    // 도메인-망구분 연동 기능
+    document.addEventListener('DOMContentLoaded', function() {
+        const networkGroupSelect = document.getElementById('network_group');
+        const domainSelect = document.getElementById('domain');
+        
+        // 도메인별 망구분 매핑 정보 (뷰에서 전달받은 데이터 활용)
+        const domainToNetworkGroup = {
+            {% for domain in domains %}
+            {{ domain.id }}: {{ domain.network_group.id }},
+            {% endfor %}
+        };
+        
+        // 도메인 선택 시 해당 망구분 자동 선택
+        domainSelect.addEventListener('change', function() {
+            const selectedDomainId = parseInt(this.value);
+            if (selectedDomainId && domainToNetworkGroup[selectedDomainId]) {
+                const networkGroupId = domainToNetworkGroup[selectedDomainId];
+                networkGroupSelect.value = networkGroupId;
+            } else if (!selectedDomainId) {
+                // 도메인이 "전체"로 선택된 경우 망구분도 "전체"로 설정
+                if (!networkGroupSelect.value) {
+                    networkGroupSelect.value = '';
+                }
+            }
+        });
+        
+        // 망구분 선택 시 도메인 필터링
+        networkGroupSelect.addEventListener('change', function() {
+            const selectedNetworkGroupId = parseInt(this.value);
+            
+            // 모든 도메인 옵션을 다시 표시
+            Array.from(domainSelect.options).forEach(option => {
+                if (option.value === '') return; // "전체" 옵션은 항상 표시
+                
+                const domainId = parseInt(option.value);
+                if (selectedNetworkGroupId) {
+                    // 특정 망구분이 선택된 경우 해당 망구분의 도메인만 표시
+                    option.style.display = (domainToNetworkGroup[domainId] === selectedNetworkGroupId) ? '' : 'none';
+                } else {
+                    // "전체"가 선택된 경우 모든 도메인 표시
+                    option.style.display = '';
+                }
+            });
+            
+            // 현재 선택된 도메인이 필터링된 망구분에 속하지 않으면 초기화
+            const currentDomainId = parseInt(domainSelect.value);
+            if (currentDomainId && selectedNetworkGroupId && domainToNetworkGroup[currentDomainId] !== selectedNetworkGroupId) {
+                domainSelect.value = '';
+            }
+        });
+        
+        // 페이지 로드 시 초기 설정
+        const urlParams = new URLSearchParams(window.location.search);
+        const initialDomainId = urlParams.get('domain');
+        const initialNetworkGroupId = urlParams.get('network_group');
+        
+        if (initialDomainId && !initialNetworkGroupId) {
+            // 도메인만 지정된 경우 해당 망구분 자동 선택
+            const domainId = parseInt(initialDomainId);
+            if (domainToNetworkGroup[domainId]) {
+                networkGroupSelect.value = domainToNetworkGroup[domainId];
+            }
+        }
+    });
+    
+    // Lucide 아이콘 초기화
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
+</script>
+{% endblock %}

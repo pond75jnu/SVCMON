@@ -1,0 +1,336 @@
+{% extends 'base.html' %}
+
+{% block title %}시스템 설정 - 전남대학교 웹사이트 모니터링 시스템{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- 페이지 헤더 -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="h-16 w-16 bg-gradient-to-r from-purple-600 to-purple-700 rounded-full flex items-center justify-center">
+                        <i class="fas fa-cogs text-white text-2xl"></i>
+                    </div>
+                </div>
+                <div class="ml-6">
+                    <h1 class="text-2xl font-bold text-gray-900">시스템 설정</h1>
+                    <p class="mt-1 text-gray-600">모니터링 시스템의 전반적인 설정을 관리합니다</p>
+                </div>
+            </div>
+            <div class="flex space-x-3">
+                <button type="button" 
+                        class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition duration-200"
+                        onclick="saveAllSettings()">
+                    <i class="fas fa-save mr-2"></i>전체 저장
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- 모니터링 설정 -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-semibold text-gray-900">
+                    <i class="fas fa-monitor-heart-rate mr-2 text-blue-600"></i>모니터링 설정
+                </h2>
+            </div>
+            
+            <form id="monitoring-settings" class="p-6 space-y-4">
+                {% csrf_token %}
+                
+                <div>
+                    <label for="check_interval" class="block text-sm font-medium text-gray-700 mb-2">
+                        체크 간격 (분)
+                    </label>
+                    <select name="check_interval" id="check_interval"
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                        <option value="1">1분</option>
+                        <option value="5" selected>5분</option>
+                        <option value="10">10분</option>
+                        <option value="15">15분</option>
+                        <option value="30">30분</option>
+                        <option value="60">1시간</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label for="timeout" class="block text-sm font-medium text-gray-700 mb-2">
+                        타임아웃 (초)
+                    </label>
+                    <input type="number" 
+                           name="timeout" 
+                           id="timeout"
+                           value="30"
+                           min="5" max="300"
+                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                </div>
+                
+                <div>
+                    <label for="max_redirects" class="block text-sm font-medium text-gray-700 mb-2">
+                        최대 리다이렉트 횟수
+                    </label>
+                    <input type="number" 
+                           name="max_redirects" 
+                           id="max_redirects"
+                           value="5"
+                           min="0" max="20"
+                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                </div>
+                
+                <div class="flex items-center">
+                    <input type="checkbox" 
+                           name="ssl_verify" 
+                           id="ssl_verify"
+                           checked
+                           class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded">
+                    <label for="ssl_verify" class="ml-2 block text-sm text-gray-900">
+                        SSL 인증서 검증
+                    </label>
+                </div>
+                
+                <div class="flex items-center">
+                    <input type="checkbox" 
+                           name="follow_redirects" 
+                           id="follow_redirects"
+                           checked
+                           class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded">
+                    <label for="follow_redirects" class="ml-2 block text-sm text-gray-900">
+                        리다이렉트 추적
+                    </label>
+                </div>
+            </form>
+        </div>
+
+        <!-- 알림 설정 -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-semibold text-gray-900">
+                    <i class="fas fa-bell mr-2 text-yellow-600"></i>알림 설정
+                </h2>
+            </div>
+            
+            <form id="notification-settings" class="p-6 space-y-4">
+                {% csrf_token %}
+                
+                <div class="flex items-center">
+                    <input type="checkbox" 
+                           name="email_notifications" 
+                           id="email_notifications"
+                           checked
+                           class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded">
+                    <label for="email_notifications" class="ml-2 block text-sm text-gray-900">
+                        이메일 알림 활성화
+                    </label>
+                </div>
+                
+                <div class="flex items-center">
+                    <input type="checkbox" 
+                           name="sms_notifications" 
+                           id="sms_notifications"
+                           class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded">
+                    <label for="sms_notifications" class="ml-2 block text-sm text-gray-900">
+                        SMS 알림 활성화
+                    </label>
+                </div>
+                
+                <div>
+                    <label for="notification_threshold" class="block text-sm font-medium text-gray-700 mb-2">
+                        알림 임계값 (연속 실패 횟수)
+                    </label>
+                    <input type="number" 
+                           name="notification_threshold" 
+                           id="notification_threshold"
+                           value="3"
+                           min="1" max="10"
+                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                </div>
+                
+                <div>
+                    <label for="notification_cooldown" class="block text-sm font-medium text-gray-700 mb-2">
+                        알림 쿨다운 (분)
+                    </label>
+                    <input type="number" 
+                           name="notification_cooldown" 
+                           id="notification_cooldown"
+                           value="60"
+                           min="5" max="1440"
+                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                </div>
+                
+                <div>
+                    <label for="admin_emails" class="block text-sm font-medium text-gray-700 mb-2">
+                        관리자 이메일 (콤마로 구분)
+                    </label>
+                    <textarea name="admin_emails" 
+                              id="admin_emails"
+                              rows="3"
+                              placeholder="admin1@jnu.ac.kr, admin2@jnu.ac.kr"
+                              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"></textarea>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 데이터베이스 설정 -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-900">
+                <i class="fas fa-database mr-2 text-green-600"></i>데이터베이스 설정
+            </h2>
+        </div>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
+            <form id="database-settings" class="space-y-4">
+                {% csrf_token %}
+                
+                <div>
+                    <label for="retention_days" class="block text-sm font-medium text-gray-700 mb-2">
+                        데이터 보관 기간 (일)
+                    </label>
+                    <input type="number" 
+                           name="retention_days" 
+                           id="retention_days"
+                           value="90"
+                           min="7" max="365"
+                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                </div>
+                
+                <div>
+                    <label for="backup_interval" class="block text-sm font-medium text-gray-700 mb-2">
+                        백업 간격
+                    </label>
+                    <select name="backup_interval" id="backup_interval"
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                        <option value="daily">매일</option>
+                        <option value="weekly" selected>매주</option>
+                        <option value="monthly">매월</option>
+                    </select>
+                </div>
+                
+                <div class="flex items-center">
+                    <input type="checkbox" 
+                           name="auto_cleanup" 
+                           id="auto_cleanup"
+                           checked
+                           class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded">
+                    <label for="auto_cleanup" class="ml-2 block text-sm text-gray-900">
+                        자동 데이터 정리
+                    </label>
+                </div>
+            </form>
+            
+            <!-- 데이터베이스 상태 -->
+            <div class="space-y-4">
+                <h3 class="text-sm font-medium text-gray-700">데이터베이스 상태</h3>
+                
+                <div class="bg-gray-50 rounded-lg p-4 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600">전체 레코드 수</span>
+                        <span class="text-sm font-semibold text-gray-900">152,847</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600">최근 7일 레코드</span>
+                        <span class="text-sm font-semibold text-gray-900">3,452</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600">데이터베이스 크기</span>
+                        <span class="text-sm font-semibold text-gray-900">245 MB</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600">마지막 백업</span>
+                        <span class="text-sm font-semibold text-gray-900">2024-01-15 02:00</span>
+                    </div>
+                </div>
+                
+                <button type="button" 
+                        class="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition duration-200"
+                        onclick="performBackup()">
+                    <i class="fas fa-download mr-2"></i>수동 백업 실행
+                </button>
+                
+                <button type="button" 
+                        class="w-full bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition duration-200"
+                        onclick="performCleanup()">
+                    <i class="fas fa-broom mr-2"></i>데이터 정리 실행
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 시스템 정보 -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-900">
+                <i class="fas fa-info-circle mr-2 text-blue-600"></i>시스템 정보
+            </h2>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 p-6">
+            <div class="text-center">
+                <div class="text-2xl font-bold text-blue-600">99.8%</div>
+                <div class="text-sm text-gray-600">시스템 가동률</div>
+            </div>
+            <div class="text-center">
+                <div class="text-2xl font-bold text-green-600">156</div>
+                <div class="text-sm text-gray-600">모니터링 대상</div>
+            </div>
+            <div class="text-center">
+                <div class="text-2xl font-bold text-orange-600">3</div>
+                <div class="text-sm text-gray-600">활성 사용자</div>
+            </div>
+            <div class="text-center">
+                <div class="text-2xl font-bold text-purple-600">v1.2.1</div>
+                <div class="text-sm text-gray-600">시스템 버전</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function saveAllSettings() {
+    // 모든 설정 폼 데이터 수집
+    const monitoringForm = new FormData(document.getElementById('monitoring-settings'));
+    const notificationForm = new FormData(document.getElementById('notification-settings'));
+    const databaseForm = new FormData(document.getElementById('database-settings'));
+    
+    // 실제 구현에서는 AJAX로 서버에 전송
+    console.log('Saving all settings...');
+    
+    // 성공 메시지 표시
+    showNotification('설정이 성공적으로 저장되었습니다.', 'success');
+}
+
+function performBackup() {
+    if (confirm('수동 백업을 실행하시겠습니까?')) {
+        console.log('Performing backup...');
+        showNotification('백업이 시작되었습니다.', 'info');
+    }
+}
+
+function performCleanup() {
+    if (confirm('데이터 정리를 실행하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+        console.log('Performing cleanup...');
+        showNotification('데이터 정리가 시작되었습니다.', 'info');
+    }
+}
+
+function showNotification(message, type) {
+    // 간단한 알림 표시
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 px-6 py-3 rounded-lg text-white z-50 ${
+        type === 'success' ? 'bg-green-600' : 
+        type === 'error' ? 'bg-red-600' : 
+        'bg-blue-600'
+    }`;
+    notification.textContent = message;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
+</script>
+{% endblock %}

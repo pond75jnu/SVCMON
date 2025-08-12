@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}
+{% if is_edit %}망구분 수정{% else %}망구분 추가{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.js">
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+    <!-- 브레드크럼 -->
+    <nav class="flex mb-6" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 md:space-x-3">
+            <li class="inline-flex items-center">
+                <a href="{% url 'monitoring:network_group_list' %}" class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600">
+                    <i data-lucide="network" class="w-4 h-4 mr-2"></i>
+                    망구분 관리
+                </a>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400"></i>
+                    <span class="ml-1 text-sm font-medium text-gray-500 md:ml-2">
+                        {% if is_edit %}망구분 수정{% else %}새 망구분 추가{% endif %}
+                    </span>
+                </div>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- 헤더 -->
+    <div class="mb-8">
+        <h1 class="text-2xl font-bold text-gray-900">
+            {% if is_edit %}망구분 수정{% else %}새 망구분 추가{% endif %}
+        </h1>
+        <p class="text-sm text-gray-600 mt-1">
+            {% if is_edit %}기존 망구분 정보를 수정합니다{% else %}새로운 망구분을 추가합니다{% endif %}
+        </p>
+    </div>
+
+    <!-- 폼 -->
+    <div class="max-w-2xl">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">
+                    {% if is_edit %}망구분 정보 수정{% else %}망구분 정보 입력{% endif %}
+                </h3>
+            </div>
+            
+            <form method="post" class="p-6 space-y-6">
+                {% csrf_token %}
+                
+                <!-- 망구분명 -->
+                <div>
+                    <label for="{{ form.name.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i data-lucide="network" class="w-4 h-4 inline mr-2"></i>
+                        망구분명 <span class="text-red-500">*</span>
+                    </label>
+                    {{ form.name }}
+                    {% if form.name.errors %}
+                        <div class="mt-1 text-sm text-red-600">
+                            {{ form.name.errors.0 }}
+                        </div>
+                    {% endif %}
+                    <p class="mt-1 text-sm text-gray-500">
+                        예: 교내망, KT망, LG망, 해외망 등
+                    </p>
+                </div>
+
+                <!-- 비고 -->
+                <div>
+                    <label for="{{ form.note.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i data-lucide="sticky-note" class="w-4 h-4 inline mr-2"></i>
+                        비고
+                    </label>
+                    {{ form.note }}
+                    {% if form.note.errors %}
+                        <div class="mt-1 text-sm text-red-600">
+                            {{ form.note.errors.0 }}
+                        </div>
+                    {% endif %}
+                    <p class="mt-1 text-sm text-gray-500">
+                        망구분에 대한 추가 설명을 입력하세요 (선택사항)
+                    </p>
+                </div>
+
+                <!-- 버튼 -->
+                <div class="flex items-center justify-between pt-6 border-t border-gray-200">
+                    <a href="{% url 'monitoring:network_group_list' %}" 
+                       class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200">
+                        <i data-lucide="arrow-left" class="w-4 h-4 mr-2"></i>
+                        목록으로
+                    </a>
+                    
+                    <div class="flex space-x-3">
+                        {% if is_edit %}
+                        <button type="button" 
+                                onclick="confirmDelete()"
+                                class="inline-flex items-center px-4 py-2 border border-red-300 rounded-lg text-sm font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-200">
+                            <i data-lucide="trash-2" class="w-4 h-4 mr-2"></i>
+                            삭제
+                        </button>
+                        {% endif %}
+                        
+                        <button type="submit" 
+                                class="inline-flex items-center px-6 py-2 bg-blue-600 border border-transparent rounded-lg text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200">
+                            <i data-lucide="save" class="w-4 h-4 mr-2"></i>
+                            {% if is_edit %}수정 완료{% else %}추가{% endif %}
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 삭제 확인 모달 -->
+{% if is_edit %}
+<div id="deleteModal" class="fixed inset-0 z-50 hidden overflow-y-auto">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="sm:flex sm:items-start">
+                    <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                        <i data-lucide="alert-triangle" class="w-6 h-6 text-red-600"></i>
+                    </div>
+                    <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">망구분 삭제</h3>
+                        <div class="mt-2">
+                            <p class="text-sm text-gray-500">
+                                "{{ network_group.name }}" 망구분을 정말 삭제하시겠습니까?<br>
+                                관련된 모든 도메인과 엔드포인트도 함께 삭제됩니다.<br>
+                                이 작업은 되돌릴 수 없습니다.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <form method="post" action="{% url 'monitoring:network_group_delete' network_group.id %}" class="sm:ml-3 sm:w-auto">
+                    {% csrf_token %}
+                    <button type="submit" 
+                            class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:w-auto sm:text-sm transition duration-150">
+                        삭제
+                    </button>
+                </form>
+                <button type="button" onclick="closeDeleteModal()"
+                        class="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:w-auto sm:text-sm transition duration-150">
+                    취소
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script>
+    lucide.createIcons();
+    
+    {% if is_edit %}
+    function confirmDelete() {
+        document.getElementById('deleteModal').classList.remove('hidden');
+    }
+    
+    function closeDeleteModal() {
+        document.getElementById('deleteModal').classList.add('hidden');
+    }
+    
+    // 모달 외부 클릭 시 닫기
+    document.getElementById('deleteModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeDeleteModal();
+        }
+    });
+    {% endif %}
+    
+    // 폼 유효성 검사
+    document.querySelector('form').addEventListener('submit', function(e) {
+        const name = document.querySelector('#{{ form.name.id_for_label }}').value.trim();
+        
+        if (!name) {
+            e.preventDefault();
+            alert('망구분명을 입력해주세요.');
+            return;
+        }
+        
+        if (name.length > 100) {
+            e.preventDefault();
+            alert('망구분명은 100자 이하로 입력해주세요.');
+            return;
+        }
+    });
+</script>
+{% endblock %}

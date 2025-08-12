@@ -1,0 +1,18 @@
+# SVCMON Requirements
+# 전남대학교 웹사이트 모니터링 시스템 - 콘솔 프로그램
+
+# HTTP 클라이언트
+aiohttp==3.9.1
+aiofiles==23.2.1
+
+# 데이터베이스
+pyodbc==5.0.1
+
+# Windows 서비스
+pywin32>=306
+
+# 유틸리티
+python-dateutil==2.8.2
+
+# 로깅 및 설정
+colorlog==6.8.0

@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+
+{% block title %}로그인 - 전남대학교 웹사이트 모니터링 시스템{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-start justify-center bg-gradient-to-br from-blue-50 via-white to-gray-50 pt-16 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full space-y-6">
+        <!-- 로고 및 헤더 -->
+        <div class="text-center">
+            <div class="mx-auto h-16 w-16 bg-gradient-to-r from-blue-600 to-blue-700 rounded-full flex items-center justify-center shadow-lg">
+                <i class="fas fa-monitor-heart-rate text-white text-2xl"></i>
+            </div>
+            <h2 class="mt-4 text-center text-3xl font-bold text-gray-900">
+                시스템 로그인
+            </h2>
+            <p class="mt-2 text-center text-sm text-gray-600">
+                전남대학교 웹사이트 모니터링 시스템
+            </p>
+        </div>
+        
+        <!-- 로그인 폼 카드 -->
+        <div class="bg-white py-8 px-6 shadow-xl rounded-2xl border border-gray-100">
+            <form class="space-y-6" method="post">
+                {% csrf_token %}
+                
+                <!-- 사용자명 입력 -->
+                <div class="space-y-2">
+                    <label for="{{ form.username.id_for_label }}" class="block text-sm font-semibold text-gray-700">
+                        <i class="fas fa-user mr-2 text-gray-400"></i>사용자명
+                    </label>
+                    {{ form.username }}
+                    {% if form.username.errors %}
+                        <div class="flex items-center text-red-600 text-sm mt-2">
+                            <i class="fas fa-exclamation-circle mr-1"></i>
+                            {{ form.username.errors.0 }}
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <!-- 비밀번호 입력 -->
+                <div class="space-y-2">
+                    <label for="{{ form.password.id_for_label }}" class="block text-sm font-semibold text-gray-700">
+                        <i class="fas fa-lock mr-2 text-gray-400"></i>비밀번호
+                    </label>
+                    {{ form.password }}
+                    {% if form.password.errors %}
+                        <div class="flex items-center text-red-600 text-sm mt-2">
+                            <i class="fas fa-exclamation-circle mr-1"></i>
+                            {{ form.password.errors.0 }}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- 전체 폼 에러 -->
+                {% if form.non_field_errors %}
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <div class="flex items-center">
+                            <i class="fas fa-exclamation-triangle text-red-400 mr-2"></i>
+                            <span class="text-red-700 text-sm">{{ form.non_field_errors.0 }}</span>
+                        </div>
+                    </div>
+                {% endif %}
+
+                <!-- 로그인 버튼 -->
+                <div class="pt-4">
+                    <button type="submit" 
+                            class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200 ease-in-out transform hover:scale-[1.02] shadow-lg">
+                        <span class="absolute left-0 inset-y-0 flex items-center pl-3">
+                            <i class="fas fa-sign-in-alt text-blue-300 group-hover:text-blue-200 transition duration-200"></i>
+                        </span>
+                        로그인
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- 하단 링크 -->
+        <div class="text-center space-y-4">
+            <p class="text-sm text-gray-600">
+                계정이 없으신가요? 
+                <a href="{% url 'accounts:signup' %}" 
+                   class="font-semibold text-blue-600 hover:text-blue-800 transition duration-200 ease-in-out">
+                    회원가입
+                </a>
+            </p>
+            
+            <!-- 추가 정보 -->
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
+                <div class="flex items-center justify-center">
+                    <i class="fas fa-info-circle text-blue-500 mr-2"></i>
+                    <span class="text-blue-700 text-sm">
+                        회원가입 후 관리자 승인이 필요합니다
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

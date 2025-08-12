@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ domain.name }} 상세 - 전남대학교 웹사이트 모니터링 시스템{% endblock %}
+
+{% block content %}
+<!-- 상단 브레드크럼 -->
+<div class="bg-white shadow-sm mb-6">
+    <div class="px-6 py-4">
+        <nav class="flex" aria-label="Breadcrumb">
+            <ol class="flex items-center space-x-4">
+                <li>
+                    <div>
+                        <a href="{% url 'dashboard:home' %}" class="text-gray-400 hover:text-gray-500">
+                            <i data-lucide="home" class="w-4 h-4"></i>
+                            <span class="sr-only">대시보드</span>
+                        </a>
+                    </div>
+                </li>
+                <li>
+                    <div class="flex items-center">
+                        <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400"></i>
+                        <a href="{% url 'dashboard:network_detail' domain.network_group.id %}" class="ml-4 text-sm font-medium text-gray-500 hover:text-gray-700">
+                            {{ domain.network_group.name }}
+                        </a>
+                    </div>
+                </li>
+                <li>
+                    <div class="flex items-center">
+                        <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400"></i>
+                        <span class="ml-4 text-sm font-medium text-gray-900">{{ domain.site_name }}</span>
+                    </div>
+                </li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<!-- 도메인 정보 헤더 -->
+<div class="bg-white shadow rounded-lg mb-8">
+    <div class="px-6 py-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">{{ domain.site_name }}</h1>
+                <p class="mt-1 text-lg text-gray-600">{{ domain.domain }}</p>
+                {% if domain.owner_contact %}
+                <p class="mt-2 text-sm text-gray-500">담당자: {{ domain.owner_contact }}</p>
+                {% endif %}
+                <p class="mt-1 text-sm text-gray-500">총 {{ endpoint_status|length }}개 엔드포인트</p>
+            </div>
+            <div class="flex space-x-3">
+                <button onclick="refreshDomainDetail()" 
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+                    <i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i>새로고침
+                </button>
+                <a href="{% url 'monitoring:endpoint_list' %}?domain={{ domain.id }}" 
+                   class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+                    <i data-lucide="settings" class="w-4 h-4 mr-2"></i>관리
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 엔드포인트 목록 -->
+<div class="bg-white shadow rounded-lg">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-lg font-semibold text-gray-900">엔드포인트 목록</h2>
+    </div>
+    
+    {% if endpoint_status %}
+    <div class="divide-y divide-gray-200">
+        {% for item in endpoint_status %}
+        <div class="p-6 hover:bg-gray-50 cursor-pointer" 
+             onclick="location.href='{% url 'dashboard:endpoint_chart' item.endpoint.id %}'">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <!-- 상태 표시 -->
+                    <div class="flex-shrink-0 mr-4">
+                        <div class="w-4 h-4 rounded-full 
+                            {% if item.status == 'RED' %}bg-red-500{% elif item.status == 'AMBER' %}bg-yellow-500{% else %}bg-green-500{% endif %}">
+                        </div>
+                    </div>
+                    
+                    <!-- 엔드포인트 정보 -->
+                    <div class="flex-grow">
+                        <h3 class="text-lg font-medium text-gray-900">{{ item.endpoint.name|default:item.endpoint.url }}</h3>
+                        <p class="text-sm text-gray-500">{{ item.endpoint.url }}</p>
+                        {% if item.endpoint.description %}
+                        <p class="text-xs text-gray-400 mt-1">{{ item.endpoint.description }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- 상태 정보 -->
+                <div class="flex items-center space-x-6">
+                    <!-- 최근 체크 결과 -->
+                    <div class="text-right">
+                        {% if item.latest_check %}
+                        <div class="text-sm font-medium 
+                            {% if item.status == 'GREEN' %}text-green-600{% elif item.status == 'RED' %}text-red-600{% else %}text-gray-600{% endif %}">
+                            {% if item.status == 'GREEN' %}
+                                정상 ({{ item.latest_check.response_time }}ms)
+                            {% elif item.status == 'RED' %}
+                                오류 ({{ item.latest_check.status_code|default:"연결실패" }})
+                            {% endif %}
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1">
+                            {{ item.latest_check.checked_at|date:"n월 j일 H:i" }}
+                        </div>
+                        {% else %}
+                        <div class="text-sm font-medium text-yellow-600">신호없음</div>
+                        <div class="text-xs text-gray-500 mt-1">체크된 적 없음</div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- 화살표 -->
+                    <div class="flex-shrink-0">
+                        <i data-lucide="chevron-right" class="w-5 h-5 text-gray-400"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="p-12 text-center">
+        <i data-lucide="globe" class="w-12 h-12 text-gray-400 mx-auto mb-4"></i>
+        <h3 class="text-sm font-medium text-gray-900 mb-2">엔드포인트가 없습니다</h3>
+        <p class="text-sm text-gray-500 mb-4">이 도메인에 등록된 엔드포인트가 없습니다.</p>
+        <a href="{% url 'monitoring:endpoint_create' %}?domain={{ domain.id }}" 
+           class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+            <i data-lucide="plus" class="w-4 h-4 mr-2"></i>엔드포인트 추가
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 상태별 범례 -->
+<div class="mt-8 bg-gray-50 rounded-lg p-6">
+    <h3 class="text-sm font-medium text-gray-900 mb-4">상태 안내</h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="flex items-center">
+            <div class="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+            <span class="text-sm text-gray-600">정상: 최근 체크에서 정상 응답</span>
+        </div>
+        <div class="flex items-center">
+            <div class="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
+            <span class="text-sm text-gray-600">신호없음: 아직 체크된 적이 없음</span>
+        </div>
+        <div class="flex items-center">
+            <div class="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+            <span class="text-sm text-gray-600">장애: 최근 체크에서 오류 발생</span>
+        </div>
+    </div>
+</div>
+
+<script>
+function refreshDomainDetail() {
+    location.reload();
+}
+
+// Lucide 아이콘 초기화
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
+});
+</script>
+{% endblock %}

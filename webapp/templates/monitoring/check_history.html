@@ -1,0 +1,454 @@
+{% extends 'base.html' %}
+
+{% block title %}체크 기록 - 전남대학교 웹사이트 모니터링 시스템{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- 페이지 헤더 -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="h-16 w-16 bg-gradient-to-r from-indigo-600 to-indigo-700 rounded-full flex items-center justify-center">
+                        <i class="fas fa-history text-white text-2xl"></i>
+                    </div>
+                </div>
+                <div class="ml-6">
+                    <h1 class="text-2xl font-bold text-gray-900">체크 기록</h1>
+                    <p class="mt-1 text-gray-600">웹사이트 모니터링 체크 결과를 확인할 수 있습니다</p>
+                </div>
+            </div>
+            <div class="flex space-x-3">
+                <button type="button" 
+                        class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-200"
+                        onclick="exportData()">
+                    <i class="fas fa-download mr-2"></i>내보내기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 필터 -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+                <label for="filter_endpoint" class="block text-sm font-medium text-gray-700 mb-2">엔드포인트</label>
+                <select id="filter_endpoint" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="">전체</option>
+                    {% for endpoint in endpoints %}
+                    <option value="{{ endpoint.id }}" {% if selected_endpoint == endpoint.id|stringformat:"s" %}selected{% endif %}>
+                        {{ endpoint.url }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div>
+                <label for="filter_status" class="block text-sm font-medium text-gray-700 mb-2">상태</label>
+                <select id="filter_status" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <option value="">전체</option>
+                    <option value="success" {% if selected_status == 'success' %}selected{% endif %}>성공</option>
+                    <option value="error" {% if selected_status == 'error' %}selected{% endif %}>오류</option>
+                </select>
+            </div>
+            
+            <div>
+                <label for="filter_date_from" class="block text-sm font-medium text-gray-700 mb-2">시작일</label>
+                <input type="date" 
+                       id="filter_date_from" 
+                       class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+            
+            <div>
+                <label for="filter_date_to" class="block text-sm font-medium text-gray-700 mb-2">종료일</label>
+                <input type="date" 
+                       id="filter_date_to" 
+                       class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+        </div>
+        
+        <div class="mt-4 flex justify-end space-x-3">
+            <button type="button" 
+                    class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition duration-200"
+                    onclick="clearFilters()">
+                <i class="fas fa-times mr-2"></i>필터 초기화
+            </button>
+            <button type="button" 
+                    class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-200"
+                    onclick="applyFilters()">
+                <i class="fas fa-search mr-2"></i>필터 적용
+            </button>
+        </div>
+    </div>
+
+    <!-- 통계 카드 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-check-circle text-green-400 text-2xl"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">성공률</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ success_rate }}%</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-clock text-blue-400 text-2xl"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">평균 응답시간</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ avg_response_time }}ms</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-exclamation-triangle text-yellow-400 text-2xl"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">오늘 오류</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ today_errors }}건</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-list text-purple-400 text-2xl"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">총 체크 수</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ total_checks|floatformat:0 }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 체크 기록 테이블 -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-900">
+                <i class="fas fa-table mr-2 text-indigo-600"></i>체크 기록 목록
+            </h2>
+        </div>
+        
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <button class="flex items-center hover:text-gray-700">
+                                체크 시간
+                                <i class="fas fa-sort ml-1"></i>
+                            </button>
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            엔드포인트
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            상태
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            응답시간
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            HTTP 코드
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            오류 메시지
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            작업
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for check in page_obj %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {{ check.checked_at|date:"Y-m-d H:i:s" }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">{{ check.endpoint.url }}</div>
+                            <div class="text-sm text-gray-500">{{ check.endpoint.domain.site_name }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if check.status_code >= 200 and check.status_code < 300 and not check.error %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <i class="fas fa-check-circle mr-1"></i>성공
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                <i class="fas fa-times-circle mr-1"></i>오류
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {% if check.latency_ms %}
+                                {{ check.latency_ms }}ms
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {% if check.status_code %}
+                                {{ check.status_code }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm {% if check.status_code >= 200 and check.status_code < 300 and not check.error %}text-gray-500{% else %}text-red-600{% endif %}">
+                            {% if check.error %}
+                                {{ check.error|truncatechars:50 }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button onclick="viewDetails({{ check.id }})" class="text-indigo-600 hover:text-indigo-900">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="px-6 py-12 text-center text-gray-500">
+                            <i class="fas fa-inbox text-4xl text-gray-300 mb-4"></i>
+                            <div>체크 기록이 없습니다.</div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- 페이지네이션 -->
+        <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+            <div class="flex-1 flex justify-between sm:hidden">
+                {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}{% if selected_endpoint %}&endpoint={{ selected_endpoint }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}" 
+                   class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">이전</a>
+                {% endif %}
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if selected_endpoint %}&endpoint={{ selected_endpoint }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}" 
+                   class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">다음</a>
+                {% endif %}
+            </div>
+            <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                <div>
+                    <p class="text-sm text-gray-700">
+                        총 <span class="font-medium">{{ page_obj.paginator.count|floatformat:0 }}</span>개 중 
+                        <span class="font-medium">{{ page_obj.start_index }}</span>-<span class="font-medium">{{ page_obj.end_index }}</span> 표시
+                    </p>
+                </div>
+                <div>
+                    <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                        {% if page_obj.has_previous %}
+                        <a href="?page={{ page_obj.previous_page_number }}{% if selected_endpoint %}&endpoint={{ selected_endpoint }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}" 
+                           class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                        {% endif %}
+                        
+                        {% for page_num in page_obj.paginator.page_range %}
+                            {% if page_num == page_obj.number %}
+                            <span class="bg-indigo-50 border-indigo-500 text-indigo-600 relative inline-flex items-center px-4 py-2 border text-sm font-medium">{{ page_num }}</span>
+                            {% elif page_num > page_obj.number|add:'-3' and page_num < page_obj.number|add:'3' %}
+                            <a href="?page={{ page_num }}{% if selected_endpoint %}&endpoint={{ selected_endpoint }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}" 
+                               class="bg-white border-gray-300 text-gray-500 hover:bg-gray-50 relative inline-flex items-center px-4 py-2 border text-sm font-medium">{{ page_num }}</a>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if page_obj.has_next %}
+                        <a href="?page={{ page_obj.next_page_number }}{% if selected_endpoint %}&endpoint={{ selected_endpoint }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}" 
+                           class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                        {% endif %}
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 상세 정보 모달 -->
+<div id="detailModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-screen overflow-y-auto">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-medium text-gray-900">
+                        <i class="fas fa-info-circle mr-2 text-indigo-600"></i>체크 상세 정보
+                    </h3>
+                    <button onclick="closeDetailModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div id="detailContent" class="px-6 py-4">
+                <!-- 상세 내용이 여기에 동적으로 로드됩니다 -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function applyFilters() {
+    const endpoint = document.getElementById('filter_endpoint').value;
+    const status = document.getElementById('filter_status').value;
+    const dateFrom = document.getElementById('filter_date_from').value;
+    const dateTo = document.getElementById('filter_date_to').value;
+    
+    // URL 파라미터 구성
+    const params = new URLSearchParams();
+    if (endpoint) params.append('endpoint', endpoint);
+    if (status) params.append('status', status);
+    if (dateFrom) params.append('date_from', dateFrom);
+    if (dateTo) params.append('date_to', dateTo);
+    
+    // 페이지 이동
+    window.location.href = window.location.pathname + '?' + params.toString();
+}
+
+function clearFilters() {
+    document.getElementById('filter_endpoint').value = '';
+    document.getElementById('filter_status').value = '';
+    document.getElementById('filter_date_from').value = '';
+    document.getElementById('filter_date_to').value = '';
+    window.location.href = window.location.pathname;
+}
+
+function exportData() {
+    // 현재 필터링된 데이터를 CSV로 내보내기
+    const params = new URLSearchParams(window.location.search);
+    params.append('export', 'csv');
+    window.location.href = window.location.pathname + '?' + params.toString();
+}
+
+function viewDetails(checkId) {
+    // 체크 상세 정보를 모달로 표시
+    fetch(`/api/check/${checkId}/`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('detailContent').innerHTML = `
+                <div class="space-y-4">
+                    <div><strong>엔드포인트:</strong> ${data.endpoint_url}</div>
+                    <div><strong>체크 시간:</strong> ${data.checked_at}</div>
+                    <div><strong>상태:</strong> ${data.is_success ? '성공' : '오류'}</div>
+                    <div><strong>응답 시간:</strong> ${data.response_time || '-'}ms</div>
+                    <div><strong>HTTP 코드:</strong> ${data.status_code || '-'}</div>
+                    <div><strong>오류 메시지:</strong> ${data.error_message || '-'}</div>
+                </div>
+            `;
+            document.getElementById('detailModal').classList.remove('hidden');
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('상세 정보를 불러오는데 실패했습니다.');
+        });
+}
+
+function closeDetailModal() {
+    document.getElementById('detailModal').classList.add('hidden');
+}
+
+function exportData() {
+    console.log('Exporting data...');
+    // 실제 구현에서는 CSV, Excel 등으로 내보내기
+}
+
+function viewDetails(checkId) {
+    // 실제 구현에서는 서버에서 상세 정보를 가져옴
+    const detailContent = `
+        <div class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">체크 ID</label>
+                    <div class="text-sm text-gray-900">${checkId}</div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">체크 시간</label>
+                    <div class="text-sm text-gray-900">2024-01-15 14:30:25</div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">엔드포인트</label>
+                    <div class="text-sm text-gray-900">www.jnu.ac.kr</div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">응답시간</label>
+                    <div class="text-sm text-gray-900">182ms</div>
+                </div>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700">응답 헤더</label>
+                <div class="mt-1 bg-gray-50 rounded p-3 text-xs font-mono">
+                    HTTP/1.1 200 OK<br>
+                    Content-Type: text/html; charset=UTF-8<br>
+                    Content-Length: 15234<br>
+                    Server: nginx/1.18.0
+                </div>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700">SSL 인증서 정보</label>
+                <div class="mt-1 bg-gray-50 rounded p-3 text-xs">
+                    유효기간: 2024-12-31까지<br>
+                    발급자: Let's Encrypt Authority
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('detailContent').innerHTML = detailContent;
+    document.getElementById('detailModal').classList.remove('hidden');
+}
+
+function closeDetailModal() {
+    document.getElementById('detailModal').classList.add('hidden');
+}
+
+// 모달 외부 클릭 시 닫기
+document.getElementById('detailModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeDetailModal();
+    }
+});
+
+// 오늘 날짜를 기본값으로 설정
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('filter_date_to').value = today;
+    
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    document.getElementById('filter_date_from').value = weekAgo.toISOString().split('T')[0];
+});
+</script>
+{% endblock %}

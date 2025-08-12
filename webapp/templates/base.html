@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}전남대학교 웹사이트 모니터링 시스템{% endblock %}</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'noto': ['Noto Sans KR', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Noto Sans KR Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@100..900&display=swap" rel="stylesheet">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <style>
+        /* 드롭다운 메뉴 스타일 */
+        .dropdown-container {
+            position: relative;
+        }
+        
+        .dropdown-menu {
+            transform: translateY(-4px);
+            transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
+        }
+        
+        .dropdown-container:hover .dropdown-menu {
+            transform: translateY(0);
+        }
+        
+        /* 메뉴 항목 높이 및 정렬 통일 */
+        .nav-item {
+            height: 40px;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+        }
+        
+        /* 아이콘 너비 통일 */
+        .nav-item i {
+            width: 16px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+        
+        /* 드롭다운 버튼과 링크의 높이 통일 */
+        .dropdown-trigger {
+            height: 40px;
+            min-height: 40px;
+        }
+        
+        /* 부드러운 호버 효과 */
+        .nav-item:hover {
+            transition: all 0.2s ease;
+        }
+        
+        /* 메뉴 컨테이너 정렬 */
+        .nav-container {
+            display: flex;
+            align-items: center;
+            height: 40px;
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="bg-gray-50 font-noto">
+    <!-- Navigation -->
+    <nav class="bg-blue-600 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <a href="{% url 'dashboard:home' %}" class="text-white text-xl font-bold">
+                            <i class="fas fa-monitor-heart-rate mr-2"></i>
+                            SVCMON
+                        </a>
+                    </div>
+                    
+                    {% if user.is_authenticated %}
+                    <div class="hidden md:block ml-10">
+                        <div class="flex items-center space-x-1 nav-container">
+                            <a href="{% url 'dashboard:home' %}" 
+                               class="text-white hover:bg-blue-700 px-3 py-2 rounded-md text-sm font-medium flex items-center nav-item">
+                                <i class="fas fa-home mr-2 w-4 text-center"></i>홈
+                            </a>
+                            
+                            <!-- 모니터링 드롭다운 -->
+                            <div class="relative dropdown-container">
+                                <button class="text-blue-200 hover:bg-blue-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium flex items-center dropdown-trigger nav-item">
+                                    <i class="fas fa-chart-line mr-2 w-4 text-center"></i>모니터링
+                                    <i class="fas fa-chevron-down ml-1 text-xs"></i>
+                                </button>
+                                <div class="absolute left-0 top-full w-48 bg-white rounded-md shadow-lg py-1 z-50 opacity-0 invisible transition-all duration-200 ease-in-out dropdown-menu">
+                                    <a href="{% url 'monitoring:network_group_list' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        <i class="fas fa-network-wired mr-2"></i>네트워크 그룹
+                                    </a>
+                                    <a href="{% url 'monitoring:domain_list' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        <i class="fas fa-globe mr-2"></i>도메인 관리
+                                    </a>
+                                    <a href="{% url 'monitoring:endpoint_list' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        <i class="fas fa-link mr-2"></i>엔드포인트
+                                    </a>
+                                    <div class="border-t border-gray-100"></div>
+                                    <a href="{% url 'monitoring:check_history' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        <i class="fas fa-history mr-2"></i>체크 기록
+                                    </a>
+                                </div>
+                            </div>
+                            
+                            {% if user.is_admin %}
+                            <a href="{% url 'monitoring:settings' %}" 
+                               class="text-blue-200 hover:bg-blue-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium flex items-center nav-item">
+                                <i class="fas fa-cogs mr-2 w-4 text-center"></i>시스템 설정
+                            </a>
+                            <a href="#" 
+                               class="text-blue-200 hover:bg-blue-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium flex items-center nav-item">
+                                <i class="fas fa-users mr-2 w-4 text-center"></i>회원관리
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                {% if user.is_authenticated %}
+                <div class="flex items-center">
+                    <div class="hidden md:block">
+                        <div class="ml-4 flex items-center md:ml-6">
+                            <div class="text-white text-sm mr-4">
+                                <span class="{% if user.is_admin %}bg-red-500{% else %}bg-green-500{% endif %} px-2 py-1 rounded text-xs mr-2">
+                                    {{ user.get_role_display }}
+                                </span>
+                                {{ user.username }}님
+                            </div>
+                            <div class="relative ml-3">
+                                <div class="dropdown">
+                                    <button class="text-white hover:text-blue-200 focus:outline-none focus:text-blue-200" 
+                                            onclick="toggleDropdown()">
+                                        <i class="fas fa-user-circle text-xl"></i>
+                                    </button>
+                                    <div id="dropdown-menu" 
+                                         class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
+                                        <a href="{% url 'accounts:profile' %}" 
+                                           class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                            <i class="fas fa-user mr-2"></i>프로필
+                                        </a>
+                                        <a href="{% url 'accounts:password_change' %}" 
+                                           class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                            <i class="fas fa-key mr-2"></i>비밀번호 변경
+                                        </a>
+                                        <div class="border-t border-gray-100"></div>
+                                        <a href="{% url 'accounts:logout' %}" 
+                                           class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                            <i class="fas fa-sign-out-alt mr-2"></i>로그아웃
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="flex items-center space-x-4">
+                    <a href="{% url 'accounts:login' %}" 
+                       class="text-white hover:text-blue-200 px-3 py-2 rounded-md text-sm font-medium">
+                        로그인
+                    </a>
+                    <a href="{% url 'accounts:signup' %}" 
+                       class="bg-blue-700 text-white hover:bg-blue-800 px-3 py-2 rounded-md text-sm font-medium">
+                        회원가입
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- Messages -->
+    {% if messages %}
+    <div class="max-w-7xl mx-auto px-4 py-4">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} mb-4 p-4 rounded-md {% if message.tags == 'error' %}bg-red-100 border border-red-400 text-red-700{% elif message.tags == 'warning' %}bg-yellow-100 border border-yellow-400 text-yellow-700{% elif message.tags == 'success' %}bg-green-100 border border-green-400 text-green-700{% else %}bg-blue-100 border border-blue-400 text-blue-700{% endif %}">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    {% if message.tags == 'error' %}
+                        <i class="fas fa-exclamation-circle"></i>
+                    {% elif message.tags == 'warning' %}
+                        <i class="fas fa-exclamation-triangle"></i>
+                    {% elif message.tags == 'success' %}
+                        <i class="fas fa-check-circle"></i>
+                    {% else %}
+                        <i class="fas fa-info-circle"></i>
+                    {% endif %}
+                </div>
+                <div class="ml-3">
+                    {{ message }}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Main Content -->
+    <main class="{% block main_class %}max-w-7xl mx-auto py-6 px-4{% endblock %}">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-8 mt-16">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="text-center">
+                <p>&copy; 2025 전남대학교 웹사이트 모니터링 시스템. All rights reserved.</p>
+                <p class="text-gray-400 text-sm mt-2">SVCMON v1.0</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+        function toggleDropdown() {
+            const dropdown = document.getElementById('dropdown-menu');
+            dropdown.classList.toggle('hidden');
+        }
+        
+        // 드롭다운 메뉴 처리
+        document.addEventListener('DOMContentLoaded', function() {
+            const dropdownContainers = document.querySelectorAll('.dropdown-container');
+            
+            dropdownContainers.forEach(container => {
+                const trigger = container.querySelector('.dropdown-trigger');
+                const menu = container.querySelector('.dropdown-menu');
+                let timeoutId;
+                
+                // 마우스 진입시 메뉴 표시
+                container.addEventListener('mouseenter', function() {
+                    clearTimeout(timeoutId);
+                    menu.classList.remove('opacity-0', 'invisible');
+                    menu.classList.add('opacity-100', 'visible');
+                });
+                
+                // 마우스 이탈시 지연 후 메뉴 숨김
+                container.addEventListener('mouseleave', function() {
+                    timeoutId = setTimeout(() => {
+                        menu.classList.remove('opacity-100', 'visible');
+                        menu.classList.add('opacity-0', 'invisible');
+                    }, 150);
+                });
+            });
+        });
+        
+        // 드롭다운 외부 클릭시 닫기
+        document.addEventListener('click', function(event) {
+            const dropdown = document.getElementById('dropdown-menu');
+            const button = event.target.closest('.dropdown button');
+            
+            if (!button && dropdown && !dropdown.classList.contains('hidden')) {
+                dropdown.classList.add('hidden');
+            }
+        });
+        
+        // 자동으로 메시지 숨기기
+        setTimeout(function() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(function(alert) {
+                alert.style.opacity = '0';
+                setTimeout(function() {
+                    alert.remove();
+                }, 300);
+            });
+        }, 5000);
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
