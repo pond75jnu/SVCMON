@@ -1,6 +1,6 @@
-# SVCMON - 전남대학교 웹사이트 모니터링 시스템
+# SVCMON - 웹사이트 모니터링 시스템
 
-전남대학교 웹사이트들의 상태를 실시간으로 모니터링하고 관리할 수 있는 Django 기반 웹 애플리케이션입니다.
+웹사이트들의 상태를 실시간으로 모니터링하고 관리할 수 있는 Django 기반 웹 애플리케이션입니다.
 
 ## 주요 기능
 
@@ -32,7 +32,7 @@
 
 ### 1. 저장소 클론
 ```bash
-git clone https://github.com/pond75/SVCMON.git
+git clone https://github.com/pond75jnu/SVCMON.git
 cd SVCMON
 ```
 
