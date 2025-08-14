@@ -79,14 +79,17 @@
 
 <!-- 최근 상태 -->
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-    {% if page_obj.object_list %}
-    {% with latest_check=page_obj.object_list.0 %}
+    {% if latest_check or current_status == 'AMBER' %}
     <div class="bg-white shadow rounded-lg p-6">
         <div class="flex items-center">
             <div class="flex-shrink-0">
                 <div class="w-8 h-8 rounded-full flex items-center justify-center
-                    {% if latest_check.status_code == 200 %}bg-green-700{% else %}bg-red-700{% endif %}">
-                    {% if latest_check.status_code == 200 %}
+                    {% if current_status == 'AMBER' %}bg-yellow-600
+                    {% elif latest_check.status_code == '200' %}bg-green-700
+                    {% else %}bg-red-700{% endif %}">
+                    {% if current_status == 'AMBER' %}
+                    <i data-lucide="alert-triangle" class="w-4 h-4 text-white"></i>
+                    {% elif latest_check.status_code == '200' %}
                     <i data-lucide="check" class="w-4 h-4 text-white"></i>
                     {% else %}
                     <i data-lucide="x" class="w-4 h-4 text-white"></i>
@@ -96,8 +99,12 @@
             <div class="ml-4">
                 <h3 class="text-sm font-medium text-gray-900">현재 상태</h3>
                 <p class="text-2xl font-bold
-                    {% if latest_check.status_code == 200 %}text-green-700{% else %}text-red-700{% endif %}">
-                    {% if latest_check.status_code == 200 %}정상{% else %}오류{% endif %}
+                    {% if current_status == 'AMBER' %}text-yellow-600
+                    {% elif latest_check and latest_check.status_code == '200' %}text-green-700
+                    {% else %}text-red-700{% endif %}">
+                    {% if current_status == 'AMBER' %}신호없음
+                    {% elif latest_check and latest_check.status_code == '200' %}정상
+                    {% else %}오류{% endif %}
                 </p>
             </div>
         </div>
@@ -106,14 +113,27 @@
     <div class="bg-white shadow rounded-lg p-6">
         <div class="flex items-center">
             <div class="flex-shrink-0">
-                <div class="w-8 h-8 rounded-full bg-blue-700 flex items-center justify-center">
+                <div class="w-8 h-8 rounded-full 
+                    {% if current_status == 'AMBER' %}bg-yellow-600{% else %}bg-blue-700{% endif %} 
+                    flex items-center justify-center">
+                    {% if current_status == 'AMBER' %}
+                    <i data-lucide="alert-triangle" class="w-4 h-4 text-white"></i>
+                    {% else %}
                     <i data-lucide="clock" class="w-4 h-4 text-white"></i>
+                    {% endif %}
                 </div>
             </div>
             <div class="ml-4">
                 <h3 class="text-sm font-medium text-gray-900">응답 시간</h3>
-                <p class="text-2xl font-bold text-blue-700">
-                    {% if latest_check.latency_ms %}{{ latest_check.latency_ms }}ms{% else %}N/A{% endif %}
+                <p class="text-2xl font-bold 
+                    {% if current_status == 'AMBER' %}text-yellow-600{% else %}text-blue-700{% endif %}">
+                    {% if current_status == 'AMBER' %}
+                        N/A
+                    {% elif latest_check and latest_check.latency_ms %}
+                        {{ latest_check.latency_ms }}ms
+                    {% else %}
+                        N/A
+                    {% endif %}
                 </p>
             </div>
         </div>
@@ -122,11 +142,15 @@
     <div class="bg-white shadow rounded-lg p-6">
         <div class="flex items-center">
             <div class="flex-shrink-0">
-                {% if latest_check.status_code == 200 %}
+                {% if current_status == 'AMBER' %}
+                <div class="w-8 h-8 rounded-full bg-yellow-600 flex items-center justify-center">
+                    <i data-lucide="alert-triangle" class="w-4 h-4 text-white"></i>
+                </div>
+                {% elif latest_check and latest_check.status_code == '200' %}
                 <div class="w-8 h-8 rounded-full bg-green-700 flex items-center justify-center">
                     <i data-lucide="check-circle" class="w-4 h-4 text-white"></i>
                 </div>
-                {% elif latest_check.status_code >= 300 and latest_check.status_code < 400 %}
+                {% elif latest_check and latest_check.status_code and latest_check.status_code.isdigit and latest_check.status_code|add:"0" >= 300 and latest_check.status_code|add:"0" < 400 %}
                 <div class="w-8 h-8 rounded-full bg-yellow-600 flex items-center justify-center">
                     <i data-lucide="alert-triangle" class="w-4 h-4 text-white"></i>
                 </div>
@@ -139,15 +163,21 @@
             <div class="ml-4">
                 <h3 class="text-sm font-medium text-gray-900">상태 코드</h3>
                 <p class="text-2xl font-bold
-                    {% if latest_check.status_code == 200 %}text-green-700
-                    {% elif latest_check.status_code >= 300 and latest_check.status_code < 400 %}text-yellow-600
+                    {% if current_status == 'AMBER' %}text-yellow-600
+                    {% elif latest_check and latest_check.status_code == '200' %}text-green-700
+                    {% elif latest_check and latest_check.status_code and latest_check.status_code.isdigit and latest_check.status_code|add:"0" >= 300 and latest_check.status_code|add:"0" < 400 %}text-yellow-600
                     {% else %}text-red-700{% endif %}">
-                    {{ latest_check.status_code|default:"N/A" }}
+                    {% if current_status == 'AMBER' %}
+                        N/A
+                    {% elif latest_check and latest_check.status_code %}
+                        {{ latest_check.status_code }}
+                    {% else %}
+                        N/A
+                    {% endif %}
                 </p>
             </div>
         </div>
     </div>
-    {% endwith %}
     {% else %}
     <div class="lg:col-span-3 bg-white shadow rounded-lg p-6 text-center">
         <i data-lucide="alert-circle" class="w-12 h-12 text-yellow-400 mx-auto mb-4"></i>
@@ -163,25 +193,16 @@
         <h2 class="text-lg font-semibold text-gray-900">응답 시간 트렌드</h2>
     </div>
     <div class="p-6">
-        {% if chart_checks %}
         <div class="h-96">
             <canvas id="responseTimeChart"></canvas>
         </div>
-        {% else %}
-        <div class="h-64 flex items-center justify-center text-gray-400">
-            <div class="text-center">
-                <i data-lucide="trending-up" class="w-12 h-12 mx-auto mb-4"></i>
-                <p>차트를 표시할 데이터가 없습니다.</p>
-            </div>
-        </div>
-        {% endif %}
     </div>
 </div>
 
-<!-- 최근 체크 기록 -->
+<!-- 최근 체크 기록 (최대 한달) -->
 <div class="bg-white shadow rounded-lg">
     <div class="px-6 py-4 border-b border-gray-200">
-        <h2 class="text-lg font-semibold text-gray-900">최근 체크 기록</h2>
+        <h2 class="text-lg font-semibold text-gray-900">최근 체크 기록 (최대 한달)</h2>
     </div>
     
     {% if page_obj.object_list %}
@@ -214,9 +235,13 @@
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                            {% if check.status_code == 200 %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
-                            {% if check.status_code == 200 %}
+                            {% if check.status_code == '200' %}bg-green-100 text-green-800
+                            {% elif check.status_code == 'N/A' or check.status_code is None %}bg-yellow-100 text-yellow-800
+                            {% else %}bg-red-100 text-red-800{% endif %}">
+                            {% if check.status_code == '200' %}
                                 <i data-lucide="check" class="w-3 h-3 mr-1"></i>정상
+                            {% elif check.status_code == 'N/A' or check.status_code is None %}
+                                <i data-lucide="alert-triangle" class="w-3 h-3 mr-1"></i>경고
                             {% else %}
                                 <i data-lucide="x" class="w-3 h-3 mr-1"></i>오류
                             {% endif %}
@@ -325,6 +350,8 @@ function triggerCheck() {
 }
 
 function updateStatusInfo(status, latency) {
+    console.log('updateStatusInfo 호출됨 - status:', status, 'latency:', latency);
+    
     // 상태 카드들 찾기
     const statusCards = document.querySelectorAll('.bg-white.shadow.rounded-lg.p-6');
     
@@ -348,23 +375,64 @@ function updateStatusInfo(status, latency) {
             } else if (status === 'RED') {
                 statusIcon.setAttribute('data-lucide', 'x');
                 statusIcon.className = 'w-4 h-4 text-white';
-                statusText.textContent = '장애';
+                statusText.textContent = '오류';
                 statusText.className = 'text-2xl font-bold text-red-700';
                 statusBg.className = 'w-8 h-8 rounded-full bg-red-700 flex items-center justify-center';
             } else { // AMBER
-                statusIcon.setAttribute('data-lucide', 'alert-circle');
+                statusIcon.setAttribute('data-lucide', 'alert-triangle');
                 statusIcon.className = 'w-4 h-4 text-white';
-                statusText.textContent = '경고';
+                statusText.textContent = '신호없음';
                 statusText.className = 'text-2xl font-bold text-yellow-600';
                 statusBg.className = 'w-8 h-8 rounded-full bg-yellow-600 flex items-center justify-center';
             }
         }
         
         // 응답시간 카드 업데이트
+        const latencyIcon = latencyCard.querySelector('i[data-lucide]');
         const latencyText = latencyCard.querySelector('p.text-2xl');
-        if (latencyText) {
-            latencyText.textContent = latency ? `${latency}ms` : 'N/A';
-            latencyText.className = 'text-2xl font-bold text-blue-700';
+        const latencyBg = latencyCard.querySelector('.w-8.h-8');
+        
+        if (latencyIcon && latencyText && latencyBg) {
+            if (status === 'AMBER') {
+                latencyIcon.setAttribute('data-lucide', 'alert-triangle');
+                latencyIcon.className = 'w-4 h-4 text-white';
+                latencyText.textContent = 'N/A';
+                latencyText.className = 'text-2xl font-bold text-yellow-600';
+                latencyBg.className = 'w-8 h-8 rounded-full bg-yellow-600 flex items-center justify-center';
+            } else {
+                latencyIcon.setAttribute('data-lucide', 'clock');
+                latencyIcon.className = 'w-4 h-4 text-white';
+                latencyText.textContent = latency ? `${latency}ms` : 'N/A';
+                latencyText.className = 'text-2xl font-bold text-blue-700';
+                latencyBg.className = 'w-8 h-8 rounded-full bg-blue-700 flex items-center justify-center';
+            }
+        }
+        
+        // 상태 코드 카드 업데이트
+        const codeIcon = statusCodeCard.querySelector('i[data-lucide]');
+        const codeText = statusCodeCard.querySelector('p.text-2xl');
+        const codeBg = statusCodeCard.querySelector('.w-8.h-8');
+        
+        if (codeIcon && codeText && codeBg) {
+            if (status === 'AMBER') {
+                codeIcon.setAttribute('data-lucide', 'alert-triangle');
+                codeIcon.className = 'w-4 h-4 text-white';
+                codeText.textContent = 'N/A';
+                codeText.className = 'text-2xl font-bold text-yellow-600';
+                codeBg.className = 'w-8 h-8 rounded-full bg-yellow-600 flex items-center justify-center';
+            } else if (status === 'GREEN') {
+                codeIcon.setAttribute('data-lucide', 'check-circle');
+                codeIcon.className = 'w-4 h-4 text-white';
+                codeText.textContent = '200';
+                codeText.className = 'text-2xl font-bold text-green-700';
+                codeBg.className = 'w-8 h-8 rounded-full bg-green-700 flex items-center justify-center';
+            } else { // RED
+                codeIcon.setAttribute('data-lucide', 'x-circle');
+                codeIcon.className = 'w-4 h-4 text-white';
+                codeText.textContent = '오류';
+                codeText.className = 'text-2xl font-bold text-red-700';
+                codeBg.className = 'w-8 h-8 rounded-full bg-red-700 flex items-center justify-center';
+            }
         }
         
         // 아이콘 다시 생성
@@ -414,12 +482,36 @@ function updateStatusCode(statusCode) {
 }
 
 function updateChart(chartData) {
-    if (mainChart) {
+    console.log('updateChart 호출됨 - 데이터 개수:', chartData ? chartData.length : 0);
+    console.log('차트 데이터:', chartData);
+    console.log('mainChart 객체 존재:', !!mainChart);
+    
+    if (mainChart && chartData) {
+        const oldDataLength = mainChart.data.labels.length;
+        
         mainChart.data.labels = chartData.map(item => item.time);
-        mainChart.data.datasets[0].data = chartData.map(item => item.latency);
-        mainChart.data.datasets[0].pointBackgroundColor = chartData.map(item => item.success ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)');
-        mainChart.data.datasets[0].pointBorderColor = chartData.map(item => item.success ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)');
+        mainChart.data.datasets[0].data = chartData.map(item => {
+            // 모든 레코드를 표시 (AMBER/N/A 레코드도 latency 0으로 표시)
+            return item.latency !== null ? item.latency : 0;
+        });
+        mainChart.data.datasets[0].pointBackgroundColor = chartData.map(item => {
+            // AMBER 레코드(N/A, AMBER)는 주황색으로 표시
+            if (item.status === 'N/A' || item.status === 'AMBER') return 'rgb(255, 165, 0)';
+            // 일반 데이터는 성공/실패에 따라 색상
+            return item.success ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)';
+        });
+        mainChart.data.datasets[0].pointBorderColor = chartData.map(item => {
+            // AMBER 레코드(N/A, AMBER)는 주황색으로 표시
+            if (item.status === 'N/A' || item.status === 'AMBER') return 'rgb(255, 165, 0)';
+            // 일반 데이터는 성공/실패에 따라 색상
+            return item.success ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)';
+        });
+        
+        console.log('차트 업데이트 전 데이터 개수:', oldDataLength, '-> 업데이트 후:', chartData.length);
         mainChart.update();
+        console.log('차트 업데이트 완료');
+    } else {
+        console.log('차트 업데이트 실패 - mainChart:', !!mainChart, 'chartData:', !!chartData);
     }
 }
 
@@ -427,39 +519,86 @@ function updateCheckRecords(records) {
     const tbody = document.querySelector('tbody');
     if (!tbody) return;
     
+    console.log('updateCheckRecords 호출 - 레코드 수:', records.length);
+    
     tbody.innerHTML = '';
     records.forEach(record => {
         const row = document.createElement('tr');
-        row.className = 'border-b border-gray-200';
+        row.className = 'hover:bg-gray-50';
         
         let statusClass = '';
         let statusText = '';
+        let statusIcon = '';
+        
         if (record.status === 'GREEN') {
             statusClass = 'bg-green-100 text-green-800';
             statusText = '정상';
+            statusIcon = '<i data-lucide="check" class="w-3 h-3 mr-1"></i>';
         } else if (record.status === 'RED') {
             statusClass = 'bg-red-100 text-red-800';
-            statusText = '장애';
-        } else {
+            statusText = '오류';
+            statusIcon = '<i data-lucide="x" class="w-3 h-3 mr-1"></i>';
+        } else { // AMBER
             statusClass = 'bg-yellow-100 text-yellow-800';
             statusText = '경고';
+            statusIcon = '<i data-lucide="alert-triangle" class="w-3 h-3 mr-1"></i>';
         }
         
-        row.innerHTML = `
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${record.check_time}</td>
-            <td class="px-6 py-4 whitespace-nowrap">
-                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusClass}">
-                    ${statusText}
-                </span>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${record.latency_ms || 'N/A'}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${record.error_message || ''}</td>
-        `;
+        // 각 셀을 개별적으로 생성하여 순서 보장
+        const timeCell = document.createElement('td');
+        timeCell.className = 'px-6 py-4 whitespace-nowrap text-sm text-gray-900';
+        timeCell.textContent = record.check_time;
+        
+        const statusCell = document.createElement('td');
+        statusCell.className = 'px-6 py-4 whitespace-nowrap';
+        statusCell.innerHTML = `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusClass}">${statusIcon}${statusText}</span>`;
+        
+        const statusCodeCell = document.createElement('td');
+        statusCodeCell.className = 'px-6 py-4 whitespace-nowrap text-sm text-gray-900';
+        statusCodeCell.textContent = record.status_code || '-';
+        
+        const latencyCell = document.createElement('td');
+        latencyCell.className = 'px-6 py-4 whitespace-nowrap text-sm text-gray-900';
+        latencyCell.textContent = record.latency_ms ? record.latency_ms + 'ms' : '-';
+        
+        const errorCell = document.createElement('td');
+        errorCell.className = 'px-6 py-4 text-sm text-gray-500';
+        if (record.error_message) {
+            const errorText = record.error_message.length > 50 ? record.error_message.substring(0, 47) + '...' : record.error_message;
+            errorCell.innerHTML = `<span class="text-red-600">${errorText}</span>`;
+        } else {
+            errorCell.textContent = '-';
+        }
+        
+        // 순서대로 셀 추가
+        row.appendChild(timeCell);
+        row.appendChild(statusCell);
+        row.appendChild(statusCodeCell);
+        row.appendChild(latencyCell);
+        row.appendChild(errorCell);
+        
         tbody.appendChild(row);
+        
+        console.log('행 추가:', {
+            time: record.check_time,
+            status: record.status,
+            status_code: record.status_code,
+            latency_ms: record.latency_ms,
+            error_message: record.error_message || '-'
+        });
     });
+    
+    // 아이콘 다시 생성
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
+    
+    console.log('updateCheckRecords 완료');
 }
 
 function fetchUpdatedData() {
+    console.log('fetchUpdatedData 호출됨 - 시간:', new Date().toLocaleTimeString());
+    
     const currentUrl = window.location.pathname;
     
     // URL에서 endpoint_id 추출
@@ -503,22 +642,32 @@ function fetchUpdatedData() {
             return response.json();
         })
         .then(data => {
-            // 상태 정보 업데이트
+            console.log('API 응답 받음:', data);
+            console.log('current_status:', data.current_status);
+            console.log('latest_latency:', data.latest_latency);
+            console.log('chart_data 길이:', data.chart_data ? data.chart_data.length : 0);
+            
+            // AMBER 상태일 때 특별 처리
+            if (data.current_status === 'AMBER') {
+                console.log('AMBER 상태 감지 - null 포인트가 포함된 차트 데이터로 업데이트');
+            }
+            
+            // 상태 정보 업데이트 (모든 상태에 대해)
             updateStatusInfo(data.current_status, data.latest_latency);
             
-            // 상태 코드 업데이트
-            if (data.latest_status_code) {
-                updateStatusCode(data.latest_status_code);
-            }
-            
-            // 차트 업데이트
+            // 차트 업데이트 (AMBER 상태여도 실행)
             if (data.chart_data) {
                 updateChart(data.chart_data);
+            } else {
+                console.log('chart_data가 없음 - 차트 업데이트 건너뜀');
             }
             
-            // 체크 기록 업데이트 (첫 번째 페이지만)
-            if (data.check_records && (!window.location.search || window.location.search.includes('page=1') || !window.location.search.includes('page='))) {
+            // 체크 기록 업데이트 (항상 실행)
+            if (data.check_records) {
+                console.log('체크 기록 업데이트 실행 - 레코드 수:', data.check_records.length);
                 updateCheckRecords(data.check_records);
+            } else {
+                console.log('체크 기록 업데이트 건너뜀 - check_records가 없음');
             }
         })
         .catch(error => {
@@ -526,38 +675,27 @@ function fetchUpdatedData() {
         });
 }
 
-// Chart.js 응답시간 차트 (최신 10개 데이터)
-{% if chart_checks %}
+// Chart.js 응답시간 차트 - API 기반 초기화
 document.addEventListener('DOMContentLoaded', function() {
     const ctx = document.getElementById('responseTimeChart').getContext('2d');
     
-    // 데이터 준비 (최신 순으로 정렬된 데이터를 시간순으로 뒤집기)
-    const chartData = [
-        {% for check in chart_checks reversed %}
-        {
-            time: '{{ check.checked_at|date:"m-d H:i" }}',
-            latency: {{ check.latency_ms|default:0 }},
-            status: {{ check.status_code|default:0 }},
-            success: {% if check.status_code == 200 %}true{% else %}false{% endif %}
-        },
-        {% endfor %}
-    ];
-    
+    // 빈 차트로 초기화
     mainChart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: chartData.map(item => item.time),
+            labels: [],
             datasets: [{
                 label: '응답시간 (ms)',
-                data: chartData.map(item => item.latency),
+                data: [],
                 borderColor: 'rgb(59, 130, 246)',
                 backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                pointBackgroundColor: chartData.map(item => item.success ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'),
-                pointBorderColor: chartData.map(item => item.success ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'),
+                pointBackgroundColor: [],
+                pointBorderColor: [],
                 pointRadius: 6,
                 pointHoverRadius: 8,
                 tension: 0.3,
-                fill: true
+                fill: true,
+                spanGaps: false
             }]
         },
         options: {
@@ -582,9 +720,17 @@ document.addEventListener('DOMContentLoaded', function() {
                             const dataIndex = context.dataIndex;
                             const status = chartData[dataIndex].status;
                             const success = chartData[dataIndex].success;
+                            
+                            let statusText;
+                            if (status === 'N/A' || status === 'AMBER') {
+                                statusText = '체크값 없음 (신호 끊김)';
+                            } else {
+                                statusText = success ? '정상' : '오류';
+                            }
+                            
                             return [
                                 `상태코드: ${status}`,
-                                `상태: ${success ? '정상' : '오류'}`
+                                `상태: ${statusText}`
                             ];
                         }
                     }
@@ -618,13 +764,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // 10초마다 실시간 업데이트
-    setInterval(fetchUpdatedData, 10000);
+    // 5초마다 실시간 업데이트 (테스트용)
+    setInterval(fetchUpdatedData, 5000);
     
-    // 첫 번째 업데이트를 5초 후에 실행
-    setTimeout(fetchUpdatedData, 5000);
+    // 첫 번째 업데이트를 즉시 실행하여 차트 초기화
+    fetchUpdatedData();
+    
+    console.log('실시간 업데이트 설정 완료 - 5초 간격으로 업데이트됩니다.');
 });
-{% endif %}
 
 // Lucide 아이콘 초기화
 document.addEventListener('DOMContentLoaded', function() {

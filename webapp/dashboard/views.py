@@ -17,25 +17,27 @@ def calculate_endpoint_status(endpoint, current_time):
     latest_check = endpoint.checks.first()
     
     if latest_check:
-        # 저장된 시간이 UTC로 표시되어 있지만 실제로는 KST 시간이므로 보정
-        # 저장된 시간을 naive datetime으로 변환 후 KST로 해석
-        kst = pytz.timezone('Asia/Seoul')
+        # status_code가 'N/A'인 경우 AMBER로 처리
+        if latest_check.status_code == 'N/A':
+            return 'AMBER'
+            
+        # 저장된 시간이 실제로는 KST 시간인데 UTC timezone으로 잘못 저장되어 있음
+        # 이를 올바르게 처리하기 위해 9시간을 빼서 실제 UTC 시간으로 변환
         
-        # timezone 정보 제거 후 KST로 해석
-        naive_check_time = latest_check.checked_at.replace(tzinfo=None)
-        kst_check_time = kst.localize(naive_check_time)
+        # 방법: 저장된 시간에서 9시간을 빼서 실제 UTC 시간으로 변환
+        actual_utc_time = latest_check.checked_at - timedelta(hours=9)
         
         # 호출주기 기반으로 신호 없음 판단
-        expected_next_check = kst_check_time + timedelta(seconds=endpoint.poll_interval_sec)
+        expected_next_check = actual_utc_time + timedelta(seconds=endpoint.poll_interval_sec)
         
-        # 현재 시간을 KST로 변환하여 비교
-        current_kst = current_time.astimezone(kst)
-        
-        if current_kst > expected_next_check:
+        # 현재 시간과 비교 (둘 다 UTC)
+        if current_time > expected_next_check:
             # 호출주기를 넘어서면 신호없음 (AMBER)
             return 'AMBER'
         elif (latest_check.status_code and 
-              200 <= latest_check.status_code < 300 and 
+              latest_check.status_code != 'N/A' and
+              latest_check.status_code.isdigit() and
+              200 <= int(latest_check.status_code) < 300 and 
               not latest_check.error):
             # 성공 조건: 상태코드가 200-299이고 에러가 없는 경우
             return 'GREEN'
@@ -197,21 +199,30 @@ def endpoint_chart_view(request, endpoint_id):
     """엔드포인트 차트 뷰"""
     endpoint = get_object_or_404(Endpoint, id=endpoint_id)
     
-    # 차트용 데이터 (최신 10개)
-    chart_checks = endpoint.checks.all()[:10]
+    # 차트용 데이터 (최신 10개) - 명시적으로 정렬
+    chart_checks = endpoint.checks.order_by('-checked_at')[:10]
     
-    # 페이징 처리를 위한 전체 체크 데이터
-    all_checks = endpoint.checks.all()
+    # 페이징 처리를 위한 체크 데이터 - 시간대 필터 제거
+    all_checks = endpoint.checks.order_by('-checked_at')
     
     # 페이징 처리 (페이지당 5개)
     paginator = Paginator(all_checks, 5)
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
     
+    # 현재 상태 계산
+    current_time = timezone.now()
+    current_status = calculate_endpoint_status(endpoint, current_time)
+    
+    # 최신 체크 정보 (AMBER 상태 처리용)
+    latest_check = endpoint.checks.first()
+    
     context = {
         'endpoint': endpoint,
         'chart_checks': chart_checks,  # 차트용 데이터
         'page_obj': page_obj,  # 페이징된 체크 데이터
+        'current_status': current_status,  # 현재 상태 (GREEN/AMBER/RED)
+        'latest_check': latest_check,  # 최신 체크 정보
     }
     return render(request, 'dashboard/endpoint_chart.html', context)
 
@@ -495,51 +506,102 @@ def domain_detail_api_view(request, domain_id):
 @csrf_exempt
 def endpoint_chart_api_view(request, endpoint_id):
     """엔드포인트 차트 API (실시간 업데이트용)"""
+    from datetime import timedelta
+    
     endpoint = get_object_or_404(Endpoint, id=endpoint_id)
     
-    # 차트용 데이터 (최근 10개만)
-    chart_checks = endpoint.checks.all()[:10]
+    # 디버그: 데이터베이스 연결 강제 새로고침
+    from django.db import connection
+    connection.close()
+    
+    # 디버그: raw SQL로 실제 최신 데이터 확인
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT TOP 3 checked_at, status_code FROM [dbo].[checks] WHERE endpoint_id = %s ORDER BY checked_at DESC", [endpoint_id])
+        raw_results = cursor.fetchall()
+        print(f"[DEBUG] Raw SQL 결과 (endpoint {endpoint_id}): {raw_results}")
+    
+    # 차트용 데이터 - Raw SQL로 직접 가져오기 (캐시 문제 해결)
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT TOP 10 
+                id, checked_at, status_code, latency_ms, error
+            FROM [dbo].[checks] 
+            WHERE endpoint_id = %s 
+            ORDER BY checked_at DESC
+        """, [endpoint_id])
+        raw_chart_data = cursor.fetchall()
+        print(f"[DEBUG] Raw SQL 차트 데이터 (최신 3개): {raw_chart_data[:3]}")
+    
+    # Raw 데이터를 Django 객체처럼 변환
+    class MockCheck:
+        def __init__(self, id, checked_at, status_code, latency_ms, error):
+            self.id = id
+            self.checked_at = checked_at
+            self.status_code = status_code
+            self.latency_ms = latency_ms
+            self.error = error
+    
+    chart_checks = [MockCheck(*row) for row in raw_chart_data]
     
     # 현재 상태 계산
     current_time = timezone.now()
     latest_check = endpoint.checks.first()
     status = calculate_endpoint_status(endpoint, current_time)
     
-    # 차트 데이터 포맷 (JavaScript에서 사용할 형식)
+    # 차트 데이터 생성 - 단순히 실제 체크 기록만 반환 (AMBER 레코드 포함)
     chart_data = []
-    for check in reversed(chart_checks):  # 시간순 정렬
-        chart_data.append({
-            'time': check.checked_at.strftime('%m-%d %H:%M'),
-            'latency': check.latency_ms or 0,
-            'status': check.status_code or 0,
-            'success': check.status_code == 200 if check.status_code else False
-        })
+    max_points = 10
     
-    # 체크 기록 데이터 (페이지네이션용)
+    if chart_checks:
+        # 실제 체크 기록을 시간순으로 정렬 (오래된 것부터)
+        sorted_checks = list(reversed(chart_checks[:max_points]))
+        
+        for check in sorted_checks:
+            # AMBER나 N/A 레코드도 latency 0으로 차트에 표시 (시각적 구분을 위해)
+            latency_value = check.latency_ms if check.latency_ms is not None else 0
+            
+            # 모든 체크 데이터 추가 (AMBER 레코드 포함)
+            chart_data.append({
+                'time': check.checked_at.strftime('%m-%d %H:%M:%S'),
+                'latency': latency_value,
+                'status': check.status_code,
+                'success': (check.status_code == '200' or 
+                           (check.status_code and check.status_code != 'N/A' and check.status_code != 'AMBER' and check.status_code.isdigit() and 
+                            200 <= int(check.status_code) < 300)) if check.status_code else False
+            })
+    
+    # 체크 기록 데이터 (페이지네이션용) - 최근 100개로 제한
     page = request.GET.get('page', 1)
-    paginator = Paginator(chart_checks, 5)
+    recent_checks = endpoint.checks.order_by('-checked_at')[:100]
+    paginator = Paginator(recent_checks, 5)
     page_obj = paginator.get_page(page)
     
     check_records = []
+    
+    # 기존 체크 기록들 추가
     for check in page_obj.object_list:
-        if check.status_code == 200:
+        if (check.status_code and check.status_code != 'N/A' and check.status_code != 'AMBER' and check.status_code.isdigit() and 
+            200 <= int(check.status_code) < 300):
             record_status = 'GREEN'
+        elif check.status_code == 'N/A' or check.status_code == 'AMBER' or check.status_code is None:
+            record_status = 'AMBER'
         else:
             record_status = 'RED'
             
         check_records.append({
             'check_time': check.checked_at.strftime('%Y-%m-%d %H:%M:%S'),
             'status': record_status,
+            'status_code': check.status_code,
             'latency_ms': check.latency_ms,
             'error_message': check.error or ''
         })
     
     data = {
         'current_status': status,
-        'latest_latency': latest_check.latency_ms if latest_check else None,
-        'latest_status_code': latest_check.status_code if latest_check else None,
+        'latest_latency': latest_check.latency_ms if latest_check and status != 'AMBER' else None,
+        'latest_status_code': latest_check.status_code if latest_check and status != 'AMBER' else None,
         'chart_data': chart_data,
-        'check_records': check_records if str(page) == '1' else None,  # 첫 페이지만
+        'check_records': check_records,  # 항상 반환
         'last_updated': timezone.now().isoformat(),
     }
     

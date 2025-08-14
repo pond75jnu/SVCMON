@@ -110,13 +110,24 @@ class DatabaseManager:
             else:
                 cursor.execute(f"EXEC {sp_name}")
             
-            # 결과를 딕셔너리 리스트로 변환
-            columns = [column[0] for column in cursor.description] if cursor.description else []
-            rows = cursor.fetchall()
-            
+            # 다중 결과 집합 처리
             result = []
-            for row in rows:
-                result.append(dict(zip(columns, row)))
+            try:
+                while True:
+                    # 현재 결과 집합 처리
+                    if cursor.description:
+                        columns = [column[0] for column in cursor.description]
+                        rows = cursor.fetchall()
+                        
+                        for row in rows:
+                            result.append(dict(zip(columns, row)))
+                    
+                    # 다음 결과 집합으로 이동
+                    if not cursor.nextset():
+                        break
+            except pyodbc.ProgrammingError:
+                # 더 이상 결과 집합이 없음
+                pass
             
             conn.commit()
             return result

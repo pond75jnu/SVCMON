@@ -56,7 +56,7 @@ GO
 
 CREATE PROCEDURE dbo.usp_record_check
     @endpoint_id BIGINT,
-    @status_code INT = NULL,
+    @status_code NVARCHAR(100) = NULL,
     @latency_ms INT = NULL,
     @headers NVARCHAR(MAX) = NULL,
     @error NVARCHAR(4000) = NULL,
@@ -81,8 +81,8 @@ BEGIN
         
         -- 상태 판정
         SET @current_status = CASE 
-            WHEN @status_code = 200 THEN 'GREEN'
-            WHEN @status_code IS NULL THEN 'AMBER'
+            WHEN @status_code = '200' THEN 'GREEN'
+            WHEN @status_code = 'N/A' OR @status_code IS NULL THEN 'AMBER'
             ELSE 'RED'
         END;
         
@@ -372,6 +372,27 @@ BEGIN
     BEGIN CATCH
         SELECT 0 AS updated_count, 'ERROR' AS status, ERROR_MESSAGE() AS message;
     END CATCH
+END
+GO
+
+-- 엔드포인트의 마지막 체크 시간 조회
+IF OBJECT_ID('dbo.usp_get_last_check_time', 'P') IS NOT NULL DROP PROCEDURE dbo.usp_get_last_check_time;
+GO
+
+CREATE PROCEDURE dbo.usp_get_last_check_time
+    @endpoint_id BIGINT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    SELECT TOP 1 
+        checked_at AS last_checked_at,
+        status_code,
+        latency_ms,
+        error
+    FROM dbo.checks
+    WHERE endpoint_id = @endpoint_id
+    ORDER BY checked_at DESC;
 END
 GO
 

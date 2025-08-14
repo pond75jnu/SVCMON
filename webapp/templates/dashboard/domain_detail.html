@@ -98,11 +98,13 @@
                     <div class="text-right">
                         {% if item.latest_check %}
                         <div class="status-result text-sm font-medium 
-                            {% if item.status == 'GREEN' %}text-green-600{% elif item.status == 'RED' %}text-red-600{% else %}text-gray-600{% endif %}">
+                            {% if item.status == 'GREEN' %}text-green-600{% elif item.status == 'RED' %}text-red-600{% else %}text-yellow-600{% endif %}">
                             {% if item.status == 'GREEN' %}
                                 정상 ({{ item.latest_check.latency_ms }}ms)
                             {% elif item.status == 'RED' %}
-                                오류 ({{ item.latest_check.status_code|default:"연결실패" }})
+                                장애 ({{ item.latest_check.status_code|default:"연결실패" }})
+                            {% else %}
+                                신호없음
                             {% endif %}
                         </div>
                         <div class="last-checked text-xs text-gray-500 mt-1">
@@ -196,7 +198,7 @@ function refreshDomainDetail() {
 }
 
 function updateDomainDetail() {
-    fetch(`/dashboard/api/domain/${window.DOMAIN_ID}/detail/`)
+    fetch(`/api/domain/${window.DOMAIN_ID}/detail/`)
         .then(response => response.json())
         .then(data => {
             data.endpoint_status.forEach(endpoint => {
@@ -211,18 +213,25 @@ function updateDomainDetail() {
                     // 상태 결과 업데이트
                     const statusResult = endpointItem.querySelector('.status-result');
                     if (statusResult) {
-                        statusResult.className = `text-sm font-medium status-result ${getStatusTextColor(endpoint.status)}`;
-                        
                         let statusText = '';
+                        let colorClass = '';
+                        
                         if (endpoint.status === 'GREEN' && endpoint.latest_check && endpoint.latest_check.latency_ms) {
                             statusText = `정상 (${endpoint.latest_check.latency_ms}ms)`;
+                            colorClass = 'text-green-600';
                         } else if (endpoint.status === 'RED' && endpoint.latest_check) {
-                            statusText = `오류 (${endpoint.latest_check.status_code || '연결실패'})`;
+                            statusText = `장애 (${endpoint.latest_check.status_code || '연결실패'})`;
+                            colorClass = 'text-red-600';
                         } else if (endpoint.status === 'AMBER') {
                             statusText = '신호없음';
+                            colorClass = 'text-yellow-600';
+                        } else {
+                            statusText = '신호없음';
+                            colorClass = 'text-yellow-600';
                         }
                         
                         statusResult.textContent = statusText;
+                        statusResult.className = `text-sm font-medium status-result ${colorClass}`;
                     }
                     
                     // 마지막 체크 시간 업데이트

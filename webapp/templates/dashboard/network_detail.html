@@ -82,6 +82,14 @@
                 
                 <!-- 상태 정보 -->
                 <div class="flex items-center space-x-6">
+                    <!-- 상태 텍스트 -->
+                    <div class="text-right mr-4">
+                        <div class="status-text text-sm font-medium 
+                            {% if item.status == 'RED' %}text-red-600{% elif item.status == 'AMBER' %}text-yellow-600{% else %}text-green-600{% endif %}">
+                            {% if item.status == 'RED' %}장애{% elif item.status == 'AMBER' %}신호없음{% else %}정상{% endif %}
+                        </div>
+                    </div>
+                    
                     <!-- 통계 -->
                     <div class="text-right">
                         <div class="text-sm font-medium text-gray-900 endpoint-count">
@@ -170,7 +178,7 @@ function refreshNetworkDetail() {
 function updateNetworkDetail() {
     const networkGroupId = {{ network_group.id }};
     
-    fetch(`/dashboard/api/network/${networkGroupId}/detail/`)
+    fetch(`/api/network/${networkGroupId}/detail/`)
         .then(response => response.json())
         .then(data => {
             data.domain_status.forEach(domain => {
@@ -180,6 +188,28 @@ function updateNetworkDetail() {
                     const statusIcon = domainItem.querySelector('.status-icon');
                     if (statusIcon) {
                         statusIcon.className = `w-4 h-4 rounded-full status-icon ${getStatusColor(domain.status)}`;
+                    }
+                    
+                    // 상태 텍스트 업데이트
+                    const statusText = domainItem.querySelector('.status-text');
+                    if (statusText) {
+                        // 텍스트 업데이트
+                        let newStatusText = '';
+                        let newColorClass = '';
+                        
+                        if (domain.status === 'RED') {
+                            newStatusText = '장애';
+                            newColorClass = 'text-red-600';
+                        } else if (domain.status === 'AMBER') {
+                            newStatusText = '신호없음';
+                            newColorClass = 'text-yellow-600';
+                        } else {
+                            newStatusText = '정상';
+                            newColorClass = 'text-green-600';
+                        }
+                        
+                        statusText.textContent = newStatusText;
+                        statusText.className = `text-sm font-medium status-text ${newColorClass}`;
                     }
                     
                     // 엔드포인트 수 업데이트
