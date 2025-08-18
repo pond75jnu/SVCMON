@@ -9,7 +9,7 @@ class SVCMONInstaller:
     """SVCMON 시스템 설치"""
     
     def __init__(self):
-        self.connection_string = "Driver={ODBC Driver 17 for SQL Server};Server=devhakdb;Database=SVCMON;Trusted_Connection=yes;TrustServerCertificate=yes;"
+        self.connection_string = CONNECTION_STRING
         
     def get_connection(self):
         """데이터베이스 연결"""

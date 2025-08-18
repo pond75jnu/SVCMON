@@ -38,11 +38,11 @@
             <div class="flex space-x-3">
                 <button onclick="refreshNetworkDetail()" 
                         class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium">
-                    <i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i>새로고침
+                    <i class="fas fa-sync-alt mr-2"></i>새로고침
                 </button>
                 <a href="{% url 'monitoring:domain_list' %}?network_group={{ network_group.id }}" 
                    class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium">
-                    <i data-lucide="settings" class="w-4 h-4 mr-2"></i>관리
+                    <i class="fas fa-cog mr-2"></i>관리
                 </a>
             </div>
         </div>
@@ -74,9 +74,7 @@
                     <div class="flex-grow">
                         <h3 class="text-lg font-medium text-gray-900">{{ item.domain.site_name }}</h3>
                         <p class="text-sm text-gray-500">{{ item.domain.domain }}</p>
-                        {% if item.domain.owner_contact %}
-                        <p class="text-xs text-gray-400 mt-1">담당자: {{ item.domain.owner_contact }}</p>
-                        {% endif %}
+                        <p class="text-xs text-gray-400 mt-1">{{ item.domain.owner_name }}{% if item.domain.owner_contact %} ({{ item.domain.owner_contact }}){% endif %}</p>
                     </div>
                 </div>
                 

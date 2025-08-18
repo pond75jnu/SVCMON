@@ -66,11 +66,11 @@
             <div class="flex space-x-3">
                 <button onclick="refreshChart()" 
                         class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium">
-                    <i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i>새로고침
+                    <i class="fas fa-sync-alt mr-2"></i>새로고침
                 </button>
                 <a href="{% url 'monitoring:endpoint_edit' endpoint.id %}" 
                    class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium">
-                    <i data-lucide="settings" class="w-4 h-4 mr-2"></i>설정
+                    <i class="fas fa-cog mr-2"></i>설정
                 </a>
             </div>
         </div>

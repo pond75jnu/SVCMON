@@ -117,3 +117,4 @@ celerybeat-schedule
 .mypy_cache/
 .dmypy.json
 dmypy.json
+console/config.ini 

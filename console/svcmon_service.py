@@ -96,7 +96,35 @@ class DatabaseManager:
                 self._connection_pool.append(conn)
             else:
                 conn.close()
-    
+
+    def execute_query(self, query: str, params: List = None) -> List[Dict]:
+        """쿼리 실행 (결과 반환)"""
+        conn = None
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            
+            if params:
+                cursor.execute(query, params)
+            else:
+                cursor.execute(query)
+
+            if not cursor.description:
+                return []
+            
+            columns = [column[0] for column in cursor.description]
+            rows = cursor.fetchall()
+            
+            result = [dict(zip(columns, row)) for row in rows]
+            return result
+            
+        except Exception as e:
+            logger.error(f"쿼리 실행 오류: {e}")
+            return [] # 오류 시 빈 리스트 반환
+        finally:
+            if conn:
+                self._return_connection(conn)
+
     def execute_sp(self, sp_name: str, params: Dict = None) -> List[Dict]:
         """저장프로시저 실행 (결과 반환)"""
         conn = None
@@ -240,7 +268,7 @@ class MonitoringService:
     
     def __init__(self, network_group_id: Optional[int] = None, network_group_name: Optional[str] = None):
         # 설정
-        self.connection_string = "Driver={ODBC Driver 17 for SQL Server};Server=devhakdb;Database=SVCMON;Trusted_Connection=yes;TrustServerCertificate=yes;"
+        self.connection_string = CONNECTION_STRING
         self.batch_size = 50
         self.poll_interval = 10  # 메인 루프 간격 (초)
         self.max_concurrent = 50
@@ -266,11 +294,14 @@ class MonitoringService:
         self.db = DatabaseManager(self.connection_string)
         self.http_checker = HttpChecker(timeout=self.timeout, max_concurrent=self.max_concurrent)
         
+        # 설정 리비전
+        self.config_revision = self._get_current_revision()
+
         # 제어 플래그
         self.running = False
         self.stop_event = threading.Event()
         
-        logger.info(f"모니터링 서비스 초기화 완료 - 망구분: {network_group_name or '전체'}")
+        logger.info(f"모니터링 서비스 초기화 완료 - 망구분: {network_group_name or '전체'}, 리비전: {self.config_revision}")
     
     def _setup_logging(self, log_filename: str):
         """망구분별 로깅 설정"""
@@ -287,7 +318,27 @@ class MonitoringService:
         
         logger.addHandler(file_handler)
         logger.addHandler(console_handler)
+
+    def _get_current_revision(self) -> int:
+        """현재 설정 리비전 번호 조회"""
+        try:
+            query = "SELECT TOP 1 revision FROM dbo.config_revisions ORDER BY updated_at DESC"
+            result = self.db.execute_query(query)
+            if result:
+                return result[0]['revision']
+        except Exception as e:
+            logger.error(f"설정 리비전 조회 오류: {e}")
+        return 0 # 오류 발생 시 기본값
+
+    async def _check_config_changes(self):
+        """설정 변경 확인 및 서비스 재시작 트리거"""
+        loop = asyncio.get_event_loop()
+        latest_revision = await loop.run_in_executor(None, self._get_current_revision)
         
+        if self.config_revision != latest_revision:
+            logger.warning(f"설정 변경 감지 (이전: {self.config_revision}, 현재: {latest_revision}). 서비스를 재시작합니다.")
+            self.stop()
+
     def start(self):
         """서비스 시작"""
         logger.info(f"SVCMON 모니터링 서비스를 시작합니다 - 망구분: {self.network_group_name or '전체'}")
@@ -317,6 +368,11 @@ class MonitoringService:
         while self.running:
             try:
                 await self._process_batch()
+
+                # 설정 변경 확인
+                await self._check_config_changes()
+                if not self.running: # 변경 감지 시 루프 즉시 종료
+                    break
                 
                 # 다음 주기까지 대기
                 for _ in range(self.poll_interval):
@@ -338,15 +394,12 @@ class MonitoringService:
             params = {
                 'now': now,
                 'limit': self.batch_size,
-                'max_concurrency': self.max_concurrent
+                'max_concurrency': self.max_concurrent,
+                'network_group_id': self.network_group_id
             }
             
-            # 망구분 필터링을 위해 일단 기존 SP 호출 후 애플리케이션에서 필터링
+            # 망구분 ID를 사용하여 DB에서 직접 필터링된 결과 조회
             batch_data = self.db.execute_sp('usp_next_poll_batch', params)
-            
-            # 망구분별 필터링 (애플리케이션 레벨)
-            if self.network_group_name and batch_data:
-                batch_data = [row for row in batch_data if row['network_group_name'] == self.network_group_name]
             
             if not batch_data:
                 logger.debug(f"체크할 엔드포인트가 없습니다. (망구분: {self.network_group_name or '전체'})")

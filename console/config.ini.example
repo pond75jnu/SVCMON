@@ -1,0 +1,2 @@
+[Database]
+connection_string = Driver={ODBC Driver 17 for SQL Server};Server=devhakdb;Database=SVCMON;Trusted_Connection=yes;TrustServerCertificate=yes;
