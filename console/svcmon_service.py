@@ -21,6 +21,9 @@ import win32service
 import win32event
 import servicemanager
 
+# 설정 파일 import
+from config import CONNECTION_STRING
+
 # 서울 시간대 설정
 KST = pytz.timezone('Asia/Seoul')
 
@@ -322,10 +325,10 @@ class MonitoringService:
     def _get_current_revision(self) -> int:
         """현재 설정 리비전 번호 조회"""
         try:
-            query = "SELECT TOP 1 revision FROM dbo.config_revisions ORDER BY updated_at DESC"
+            query = "SELECT TOP 1 id FROM dbo.config_revisions ORDER BY changed_at DESC"
             result = self.db.execute_query(query)
             if result:
-                return result[0]['revision']
+                return result[0]['id']
         except Exception as e:
             logger.error(f"설정 리비전 조회 오류: {e}")
         return 0 # 오류 발생 시 기본값
@@ -394,7 +397,6 @@ class MonitoringService:
             params = {
                 'now': now,
                 'limit': self.batch_size,
-                'max_concurrency': self.max_concurrent,
                 'network_group_id': self.network_group_id
             }
             
